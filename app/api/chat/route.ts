@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { streamText } from "ai";
 import { buildMockResponse, estimateMockTokens, getModel } from "@/lib/ai/catalog";
+import { resolveProviderModel } from "@/lib/ai/providers";
 import { customerChargeAtoms, maximumChargeAtoms, providerCostNanoUsd } from "@/lib/credits/accounting";
 import { getDemoStore } from "@/lib/server/demo-store";
 
@@ -9,21 +11,23 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(4_000),
-  modelId: z.enum(["tz-mock-balanced", "tz-mock-reasoning"]),
+  modelId: z.string().min(3).max(220),
   idempotencyKey: z.string().uuid(),
 });
 
 const encoder = new TextEncoder();
 const targetMarginBps = 4_000;
 const maximumOutputTokens = 160;
+const maximumProviderOutputTokens = 512;
 
 function event(data: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 }
 
 export async function POST(request: Request) {
+  const providerDevEnabled = process.env.NODE_ENV !== "production" && process.env.AI_PROVIDER_MODE === "provider-dev";
   const demo = getDemoStore();
-  if (!demo) {
+  if (!providerDevEnabled && !demo) {
     return NextResponse.json({ error: "AI inference is unavailable. Configure authentication, PostgreSQL accounting, and an approved provider integration first." }, { status: 503 });
   }
 
@@ -36,6 +40,75 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: "Invalid chat request.", details: parsed.error.flatten() }, { status: 400 });
 
+  if (providerDevEnabled) {
+    const resolved = await resolveProviderModel(parsed.data.modelId);
+    if (!resolved) return NextResponse.json({ error: "That model is unavailable for the configured provider credentials." }, { status: 404 });
+
+    const abortController = new AbortController();
+    const abortFromRequest = () => abortController.abort(request.signal.reason);
+    request.signal.addEventListener("abort", abortFromRequest, { once: true });
+    const generation = streamText({
+      model: resolved.model,
+      prompt: parsed.data.prompt,
+      maxOutputTokens: maximumProviderOutputTokens,
+      maxRetries: 0,
+      abortSignal: abortController.signal,
+    });
+    let cancelled = false;
+    const providerStream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          for await (const text of generation.textStream) {
+            if (cancelled) return;
+            controller.enqueue(event({ type: "delta", text }));
+          }
+          const usage = await generation.usage;
+          if (!cancelled) {
+            controller.enqueue(event({
+              type: "done",
+              mode: "direct-provider-development",
+              provider: resolved.provider,
+              modelId: parsed.data.modelId,
+              usage: {
+                inputTokens: usage.inputTokens ?? null,
+                outputTokens: usage.outputTokens ?? null,
+                status: usage.inputTokens != null || usage.outputTokens != null ? "provider-reported" : "unavailable",
+              },
+            }));
+            controller.close();
+          }
+        } catch {
+          if (!cancelled) {
+            try {
+              controller.enqueue(event({ type: "error", error: "The provider request failed. Check model access and credentials in the server environment." }));
+              controller.close();
+            } catch {
+              // The client may have disconnected while the provider stream was ending.
+            }
+          }
+        } finally {
+          request.signal.removeEventListener("abort", abortFromRequest);
+        }
+      },
+      cancel() {
+        cancelled = true;
+        abortController.abort();
+        request.signal.removeEventListener("abort", abortFromRequest);
+      },
+    });
+
+    return new Response(providerStream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
+  if (!demo) {
+    return NextResponse.json({ error: "The local demo wallet is unavailable." }, { status: 503 });
+  }
   const model = getModel(parsed.data.modelId);
   if (!model || model.availability !== "development-mock") return NextResponse.json({ error: "Model is not available." }, { status: 404 });
 

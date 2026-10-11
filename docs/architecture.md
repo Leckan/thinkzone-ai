@@ -2,9 +2,9 @@
 
 ## Current runtime
 
-The repository is a Next.js App Router application. The root route renders the workspace UI. `components/workspace.tsx` owns presentation state and talks to two server routes. `/api/chat` validates a demo prompt, reserves credits from an in-memory wallet, runs the development mock adapter, streams SSE deltas, and settles estimated mock usage. `/api/overview` returns the current demo wallet and usage snapshot.
+The repository is a Next.js App Router application. The root route renders the workspace UI. `components/workspace.tsx` owns presentation state and talks to the model, chat, and overview routes. In mock mode, `/api/chat` reserves credits from an in-memory wallet, streams a simulated response, and settles estimated mock usage. In direct provider development mode, `/api/models` discovers configured text models and `/api/chat` uses AI SDK provider adapters to stream provider responses and returns provider-reported token usage when available.
 
-The mock routes are guarded by `getDemoStore()`: they return unavailable when `NODE_ENV=production` or `AI_PROVIDER_MODE` is not exactly `mock`. The seeded demo balance and ledger are process-local and are not a substitute for persisted accounting.
+The mock routes are guarded by `getDemoStore()`: they return unavailable when `NODE_ENV=production` or `AI_PROVIDER_MODE` is not exactly `mock`. Direct provider development routes also return unavailable in production. That path bypasses the mock wallet and does not persist usage or calculate actual provider cost. The seeded demo balance and ledger are process-local and are not a substitute for persisted accounting.
 
 ## Domain boundaries
 
@@ -32,9 +32,10 @@ The production design should replace the local store with one database transacti
 | Responsive workspace, dashboard, local chat, model selector, usage view | Implemented for local demo |
 | Streaming response UX and cancellation | Implemented for local mock only |
 | Integer credit pricing and lot-order ledger | Implemented and unit tested in memory |
-| PostgreSQL / Drizzle schema and initial migration | Included; not connected or executed |
+| PostgreSQL / Drizzle schema and initial migration | Applied to the configured empty Think Zone database; runtime repositories are not connected |
 | Authentication, sessions, email verification | Not implemented |
-| Real providers and authoritative usage reconciliation | Not implemented; commercial review pending |
+| Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
+| Persistent provider usage, actual cost calculation, and reconciliation | Not implemented; commercial review and verified rate cards pending |
 | Stripe subscriptions, checkout, webhooks, top-ups | Not implemented |
 | Durable queue, API keys, organizations, file processing | Schema/UI foundations only or not implemented |
 | Public marketing/legal pages and admin console | Not implemented |

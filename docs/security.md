@@ -4,6 +4,7 @@
 
 - Provider and payment secrets are not included in the repository.
 - The mock inference and overview routes only operate in non-production when `AI_PROVIDER_MODE=mock` is explicitly set.
+- Direct provider calls and model discovery only operate in non-production when `AI_PROVIDER_MODE=provider-dev` is explicitly set. The browser cannot access provider keys; requests are sent from the server. This path has no authentication, rate limiting, persistent usage log, or Think Zone credit controls and must not be exposed to untrusted users.
 - The mock chat request is schema validated and length limited server-side.
 - The request model ID is checked against a hardcoded development mock catalog; the client cannot supply a rate card or credit amount.
 - The demo reserves credits before generating the response and releases the reservation if the stream is canceled or fails.
