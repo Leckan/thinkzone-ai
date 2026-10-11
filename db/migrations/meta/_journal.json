@@ -15,6 +15,13 @@
       "when": 1791701494762,
       "tag": "0001_light_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791704610712,
+      "tag": "0002_wise_hairball",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { modelCatalog } from "@/lib/ai/catalog";
 import { formatTzc } from "@/lib/credits/accounting";
+import { GoogleAuthControl } from "@/components/google-auth-control";
 
 type Screen = "Overview" | "New chat" | "Conversations" | "Model catalog" | "Usage & credits" | "Subscription" | "Developer API" | "Settings";
 type RuntimeMode = "loading" | "development-mock" | "direct-provider-development" | "unavailable";
@@ -91,7 +92,7 @@ function shortDate(value: number): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
-export function Workspace() {
+export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean }) {
   const [screen, setScreen] = useState<Screen>("Overview");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [overviewError, setOverviewError] = useState("");
@@ -309,12 +310,12 @@ export function Workspace() {
           <div className="topbar-actions">
             <div className="topbar-tag"><span style={{ width: 6, height: 6, borderRadius: 8, background: runtimeMode === "direct-provider-development" ? "#58a67b" : "#d2a94f" }} />{runtimeMode === "direct-provider-development" ? "Direct provider development" : "Local development demo"}</div>
             <button className="icon-button" aria-label="Notifications" type="button" title="Notifications are not enabled in this demo"><Bell size={15} /></button>
-            <div className="topbar-avatar" aria-label="Local demo account">TZ</div>
+            {googleOAuthEnabled ? <GoogleAuthControl enabled={googleOAuthEnabled} /> : <div className="topbar-avatar" aria-label="Local demo account">TZ</div>}
           </div>
         </header>
 
         <main className={`content ${screen === "New chat" ? "content-narrow" : ""}`}>
-          {runtimeMode === "direct-provider-development" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Direct provider development mode.</strong> Prompts go to the selected provider using its server-side API key. The provider bills that key’s account; Think Zone does not deduct TZC or calculate a customer charge. Requests and transcripts are not stored.</span></div> : runtimeMode === "development-mock" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Development mode.</strong> Chat uses a simulated model and sample credits held in memory. No external AI provider, account, or payment service is connected; sample balances reset when the local server restarts.</span></div> : <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Loading local provider configuration.</strong> No prompt is sent until you submit a chat message.</span></div>}
+          {runtimeMode === "direct-provider-development" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Direct provider development mode.</strong> Sign in with Google before submitting a prompt. Prompts go to the selected provider using its server-side API key. The provider bills that key’s account; Think Zone does not deduct TZC or calculate a customer charge. Requests and transcripts are not stored.</span></div> : runtimeMode === "development-mock" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Development mode.</strong> Chat uses a simulated model and sample credits held in memory. No external AI provider, account, or payment service is connected; sample balances reset when the local server restarts.</span></div> : <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Loading local provider configuration.</strong> No prompt is sent until you submit a chat message.</span></div>}
           {overviewError && <div className="notice-panel" role="status">{overviewError}</div>}
           {modelError && <div className="notice-panel" role="status">{modelError}</div>}
           {screen === "New chat" ? renderChat() : screen === "Overview" ? renderOverview() : screen === "Usage & credits" ? renderUsage() : screen === "Model catalog" ? renderCatalog() : screen === "Conversations" ? renderConversations() : screen === "Subscription" ? renderSubscription() : screen === "Developer API" ? renderDeveloper() : renderSettings()}

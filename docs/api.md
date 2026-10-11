@@ -1,6 +1,10 @@
 # API status
 
-The implemented routes are local development endpoints. The mock wallet endpoints require `AI_PROVIDER_MODE=mock`; the live provider catalog and inference path require `AI_PROVIDER_MODE=provider-dev`. Both modes are disabled in production. Neither mode provides authentication or production authorization.
+The implemented routes are local development endpoints. The mock wallet endpoints require `AI_PROVIDER_MODE=mock`; the live provider catalog and inference path require `AI_PROVIDER_MODE=provider-dev`. Both modes are disabled in production. Google OAuth sessions are used to protect direct provider inference, but this is not production authorization for the full product.
+
+## `GET, POST /api/auth/[...all]`
+
+Better Auth handles Google sign-in, OAuth callbacks, session lookup, and sign-out through this route. It stores Google users and sessions in PostgreSQL. The browser uses `authClient` for the sign-in control; provider secrets and OAuth token encryption remain server-side. Google sign-in is enabled only when the OAuth client ID, client secret, auth secret, and database URL are configured.
 
 ## `GET /api/models`
 
@@ -26,6 +30,6 @@ Request JSON:
 
 The route accepts prompts up to 4,000 characters. In mock mode it accepts only the two development mock IDs and reserves a conservative maximum charge before creating an SSE response. `data:` events contain `delta`, then a final `done` event with simulated token counts, sample provider cost, and demo credit charge. These values are not provider-reported usage. `402` indicates insufficient sample credits, `409` indicates an already-used idempotency key or reservation conflict, and `503` indicates the mock gateway is disabled.
 
-In direct provider development mode, `modelId` must be an exact model in the server-fetched catalog. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
+In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
 
-The route is not a production inference API: it has no account authentication, database persistence, live provider, developer key, or distributed idempotency. Production API routes listed in the original product requirements remain unimplemented.
+The route is not a production inference API: it has no durable usage accounting, customer billing, developer key, or distributed idempotency. Production API routes listed in the original product requirements remain unimplemented.

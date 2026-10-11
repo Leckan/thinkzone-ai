@@ -41,6 +41,12 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid chat request.", details: parsed.error.flatten() }, { status: 400 });
 
   if (providerDevEnabled) {
+    const { auth } = await import("@/lib/auth");
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: "Sign in with Google before sending a provider request." }, { status: 401 });
+    }
+
     const resolved = await resolveProviderModel(parsed.data.modelId);
     if (!resolved) return NextResponse.json({ error: "That model is unavailable for the configured provider credentials." }, { status: 404 });
 

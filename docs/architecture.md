@@ -2,7 +2,7 @@
 
 ## Current runtime
 
-The repository is a Next.js App Router application. The root route renders the workspace UI. `components/workspace.tsx` owns presentation state and talks to the model, chat, and overview routes. In mock mode, `/api/chat` reserves credits from an in-memory wallet, streams a simulated response, and settles estimated mock usage. In direct provider development mode, `/api/models` discovers configured text models and `/api/chat` uses AI SDK provider adapters to stream provider responses and returns provider-reported token usage when available.
+The repository is a Next.js App Router application. The root route renders the workspace UI. `components/workspace.tsx` owns presentation state and talks to the model, chat, and overview routes. Better Auth handles Google OAuth and PostgreSQL-backed user/session records; the direct provider development chat route requires a valid session. In mock mode, `/api/chat` reserves credits from an in-memory wallet, streams a simulated response, and settles estimated mock usage. In direct provider development mode, `/api/models` discovers configured text models and `/api/chat` uses AI SDK provider adapters to stream provider responses and returns provider-reported token usage when available.
 
 The mock routes are guarded by `getDemoStore()`: they return unavailable when `NODE_ENV=production` or `AI_PROVIDER_MODE` is not exactly `mock`. Direct provider development routes also return unavailable in production. That path bypasses the mock wallet and does not persist usage or calculate actual provider cost. The seeded demo balance and ledger are process-local and are not a substitute for persisted accounting.
 
@@ -11,9 +11,10 @@ The mock routes are guarded by `getDemoStore()`: they return unavailable when `N
 - `lib/ai/catalog.ts`: explicitly simulated catalog entries and mock response generation.
 - `lib/credits/accounting.ts`: integer pricing, lot precedence, reservation, settlement, release, and an append-only in-memory event ledger.
 - `lib/server/demo-store.ts`: local demonstration state, request history, and the development-only feature gate.
-- `db/schema.ts` and `db/migrations`: PostgreSQL tables for users, organizations, plans, subscriptions, model/provider eligibility, versioned rate cards, credit accounts/lots, usage, reservations, ledger, payment event idempotency, API-key hashes, conversations, and audit records.
+- `lib/auth.ts` and `app/api/auth/[...all]/route.ts`: Google OAuth, encrypted OAuth-token storage, and session handling with Better Auth.
+- `db/schema.ts` and `db/migrations`: PostgreSQL tables for auth and users, organizations, plans, subscriptions, model/provider eligibility, versioned rate cards, credit accounts/lots, usage, reservations, ledger, payment event idempotency, API-key hashes, conversations, and audit records.
 
-The PostgreSQL schema is a foundation only. There is no production repository/service layer connecting the chat route to PostgreSQL, no authentication implementation, and no worker or webhook processor. In production, these gaps must be completed before enabling access.
+The PostgreSQL schema is a foundation for most product data. Google auth records use PostgreSQL, but there is no production repository/service layer connecting the chat route to wallet accounting, and no worker or webhook processor. In production, these gaps must be completed before enabling customer access.
 
 ## Data and request path
 
@@ -32,8 +33,8 @@ The production design should replace the local store with one database transacti
 | Responsive workspace, dashboard, local chat, model selector, usage view | Implemented for local demo |
 | Streaming response UX and cancellation | Implemented for local mock only |
 | Integer credit pricing and lot-order ledger | Implemented and unit tested in memory |
-| PostgreSQL / Drizzle schema and initial migration | Applied to the configured empty Think Zone database; runtime repositories are not connected |
-| Authentication, sessions, email verification | Not implemented |
+| PostgreSQL / Drizzle schema and migrations | Applied to the configured Think Zone database; Better Auth uses auth tables while billing repositories remain unconnected |
+| Google OAuth, sessions, verified-email check | Implemented with Better Auth and PostgreSQL; not yet connected to subscriptions, wallet ownership, or general route authorization |
 | Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
 | Persistent provider usage, actual cost calculation, and reconciliation | Not implemented; commercial review and verified rate cards pending |
 | Stripe subscriptions, checkout, webhooks, top-ups | Not implemented |
