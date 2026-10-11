@@ -37,6 +37,9 @@ function event(data: unknown): Uint8Array {
 }
 
 export async function POST(request: Request) {
+  const user = await getActiveUser(request);
+  if (!user) return NextResponse.json({ error: "Sign in with Google before using Think Zone AI." }, { status: 401 });
+
   const providerDevEnabled = process.env.NODE_ENV !== "production" && process.env.AI_PROVIDER_MODE === "provider-dev";
   const demo = getDemoStore();
   if (!providerDevEnabled && !demo) {
@@ -53,11 +56,6 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid chat request.", details: parsed.error.flatten() }, { status: 400 });
 
   if (providerDevEnabled) {
-    const user = await getActiveUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Sign in with Google before sending a provider request." }, { status: 401 });
-    }
-
     const limit = await consumeUserRateLimit({ userId: user.id, scope: "provider-chat", limit: 10, windowMs: 60_000 });
     const limitFailure = getRateLimitFailure(limit, "provider chat");
     if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });

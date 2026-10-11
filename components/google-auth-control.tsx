@@ -19,7 +19,7 @@ function ConfiguredGoogleAuthControl() {
     setBusy(true);
     setError("");
     try {
-      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/workspace" });
       if (result.error) setError("Google sign-in could not be started. Check the OAuth setup and try again.");
     } catch {
       setError("Google sign-in could not be started. Check the OAuth setup and try again.");

@@ -1,10 +1,12 @@
 # API status
 
-The model, chat, and overview routes remain local development endpoints. Stripe billing routes require a Google-authenticated active user, PostgreSQL, and `STRIPE_SECRET_KEY`. Checkout prices are loaded from active database plans and packages. Stripe webhook events are the only mechanism that grants persistent billing credits.
+The model, chat, and overview routes remain local development endpoints and require an active Google-authenticated user. Stripe billing routes require an active user, PostgreSQL, and `STRIPE_SECRET_KEY`. Checkout prices are loaded from active database plans and packages. Stripe webhook events are the only mechanism that grants persistent billing credits.
 
 ## `GET, POST /api/auth/[...all]`
 
 Better Auth handles Google sign-in, OAuth callbacks, session lookup, and sign-out through this route. It stores Google users and sessions in PostgreSQL. The browser uses `authClient` for the sign-in control; provider secrets and OAuth token encryption remain server-side. Google sign-in is enabled only when the OAuth client ID, client secret, auth secret, and database URL are configured.
+
+All application APIs for models, chat, overview, conversations, and billing return `401` without an active signed-in account. Better Auth routes and the Stripe webhook are public callback endpoints.
 
 ## `GET /api/models`
 
@@ -14,7 +16,7 @@ Better Auth handles Google sign-in, OAuth callbacks, session lookup, and sign-ou
 
 ## `GET /api/overview`
 
-Returns a no-store snapshot of the process-local sample wallet, usage requests, and grant/charge ledger rows. It is not an authenticated user account endpoint and must not be exposed publicly.
+Requires an active signed-in account. Returns a no-store snapshot of the process-local sample wallet, usage requests, and grant/charge ledger rows. The wallet is a local demo and is not a persistent per-account balance.
 
 ## `POST /api/chat`
 

@@ -14,7 +14,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The local mock adapter is enabled by `AI_PROVIDER_MODE=mock`; it is disabled in production even if that variable is set. Requests are labeled simulated and use a development-only sample rate card. They do not reach an external provider and do not create a payment or a real bill.
+Open [http://localhost:3000](http://localhost:3000) for the public landing page. Use **Sign in** or **Get started** to continue with Google; the first successful Google sign-in creates the account. The workspace at `/workspace` and its account APIs require an active signed-in account. The local mock adapter is enabled by `AI_PROVIDER_MODE=mock`; it is disabled in production even if that variable is set. Requests are labeled simulated and use a development-only sample rate card. They do not reach an external provider and do not create a payment or a real bill.
 
 Google sign-in uses the configured `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, with `AUTH_SECRET` for sessions and `DATABASE_URL` for user and session records. In Google Cloud Console, register `{BETTER_AUTH_URL or APP_URL}/api/auth/callback/google` as an authorized redirect URI. Set `BETTER_AUTH_URL` when the app is served from an origin different from `APP_URL` (for example, a non-default local port). Only accounts with Google-verified email addresses can sign in.
 
@@ -41,9 +41,9 @@ The configured Think Zone PostgreSQL database now has migrations `0000`–`0006`
 
 ## Local demo behavior
 
-- `/api/overview` returns sample wallet and usage data only in non-production development mode.
-- `/api/chat` in mock mode accepts only the two development mock model IDs, reserves a conservative amount, streams a visibly simulated answer, estimates token counts from character length, settles sample credits, and updates the session ledger.
-- In `provider-dev` mode, `/api/models` discovers models for configured providers and `/api/chat` requires a Google-authenticated session before streaming a direct provider response. Provider-returned token usage is displayed when available; the provider account is billed directly and the Think Zone demo wallet is bypassed.
+- `/api/overview` returns sample wallet and usage data only in non-production development mode and requires an active signed-in account.
+- `/api/chat` requires an active signed-in account in both local modes. In mock mode it accepts only the two development mock model IDs, reserves a conservative amount, streams a visibly simulated answer, estimates token counts from character length, settles sample credits, and updates the session ledger.
+- In `provider-dev` mode, `/api/models` discovers models for configured providers and `/api/chat` streams a direct provider response for the signed-in account. Provider-returned token usage is displayed when available; the provider account is billed directly and the Think Zone demo wallet is bypassed.
 - Reservations are released when the local stream is canceled or fails.
 - The ledger uses integer credit atoms. `1 TZC = 1,000 atoms`; for the example pricing conversion, one atom represents `$0.000001` of customer charge.
 - The demo wallet is in-memory only. It is not safe for multiple processes, persistence, or real customer balances.

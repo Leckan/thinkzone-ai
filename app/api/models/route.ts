@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { listConfiguredModels } from "@/lib/ai/providers";
 import { modelCatalog } from "@/lib/ai/catalog";
+import { getActiveUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const user = await getActiveUser(request);
+  if (!user) return NextResponse.json({ error: "Sign in with Google to use the model catalog." }, { status: 401 });
+
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "The local provider catalog is disabled in production." }, { status: 503 });
   }

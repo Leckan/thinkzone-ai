@@ -4,9 +4,9 @@
 
 - Provider and payment secrets are not included in the repository.
 - Google OAuth credentials and the auth signing secret are read server-side. Google sign-in requires a verified email, and Google-backed user/session records are stored in PostgreSQL.
-- Direct provider inference requires a valid Google-authenticated session in addition to remaining disabled in production. Model catalog discovery does not require a session and sends no prompts.
-- The mock inference and overview routes only operate in non-production when `AI_PROVIDER_MODE=mock` is explicitly set.
-- Direct provider calls and model discovery only operate in non-production when `AI_PROVIDER_MODE=provider-dev` is explicitly set. The browser cannot access provider keys; inference requests require a valid Google session and are sent from the server. This path has no rate limiting, persistent usage log, or Think Zone credit controls and must not be exposed to untrusted users.
+- The public landing and Google OAuth pages are separate from the protected `/workspace` route. The workspace redirects visitors without an active Google-authenticated session to `/sign-in`.
+- The mock inference and overview routes only operate in non-production when `AI_PROVIDER_MODE=mock` is explicitly set and require an active account.
+- Direct provider calls and model discovery only operate in non-production when `AI_PROVIDER_MODE=provider-dev` is explicitly set. The browser cannot access provider keys; inference and model requests require a valid active Google session and are sent from the server. This path has no persistent usage log or Think Zone credit controls and must not be exposed to untrusted users.
 - The mock chat request is schema validated and length limited server-side.
 - Billing routes require a Google-authenticated account with active status. Checkout requests carry only database keys and idempotency IDs; plan prices and credit amounts are read server-side.
 - Saved-conversation routes require an active Google-authenticated user, scope queries and mutations by the session user's database ID, validate bounded message/title input, and mark responses private and `no-store`. Transcripts are written only after an explicit Save action; account owners can archive or permanently delete them.
@@ -24,4 +24,4 @@
 
 Persistent wallet spending and reservations for production inference, IP/network-level abuse controls, rate-limit policy tuning and monitoring, distributed locking for usage operations, API-key hashing/revocation routes, file scanning/storage, durable application audit trail, automatic transcript retention, CSP/security headers review, and incident response. User-triggered transcript deletion exists, but automated retention, export, and deletion from provider-side records are not implemented. Refund-driven credit reversals and payment dispute handling are also not implemented. Google OAuth and Stripe webhooks provide the listed controls; they do not make the full product production-ready.
 
-Before production, extend server-side authorization to every sensitive route, connect persistent wallet spending to inference, add privacy disclosures, provider-specific data controls, network-level rate limits and monitoring, secret management, and review the security-header policy. Do not claim SOC 2, HIPAA, or other certifications based on this code.
+Before production, connect persistent wallet spending to inference, add privacy disclosures, provider-specific data controls, network-level rate limits and monitoring, secret management, and review the security-header policy. Do not claim SOC 2, HIPAA, or other certifications based on this code.

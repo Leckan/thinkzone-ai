@@ -474,9 +474,9 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           <div className="brand-mark"><Sparkles size={18} strokeWidth={2.1} /></div>
           <div><div className="brand-name">think zone</div><div className="brand-sub">AI workspace</div></div>
         </div>
-        <button className="workspace-switcher" type="button" aria-label="Local demo workspace">
+        <button className="workspace-switcher" type="button" aria-label="Personal workspace">
           <span className="workspace-glyph"><LayersIcon /></span>
-          <span className="workspace-copy"><span className="workspace-title">Personal workspace</span><span className="workspace-caption">{runtimeMode === "direct-provider-development" ? "Local development session" : "Local demo account"}</span></span>
+          <span className="workspace-copy"><span className="workspace-title">Personal workspace</span><span className="workspace-caption">Signed-in account</span></span>
           <ChevronDown size={14} color="#9292a9" />
         </button>
         {navGroups.map((group) => (
@@ -509,7 +509,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           <div className="credit-mini-foot"><span>Sample balance</span><button className="text-link" type="button" onClick={() => openScreen("Usage & credits")}>View usage <ArrowUpRight size={10} style={{ verticalAlign: "-2px" }} /></button></div>
         </div>}
         <div className="profile-row">
-          <div className="avatar">TZ</div><div style={{ flex: 1 }}><div className="profile-name">{runtimeMode === "direct-provider-development" ? "Developer session" : "Local demo"}</div><div className="profile-role">Personal workspace</div></div><MoreHorizontal size={16} color="#9292a4" />
+          <div className="avatar">TZ</div><div style={{ flex: 1 }}><div className="profile-name">Signed-in account</div><div className="profile-role">Personal workspace</div></div><MoreHorizontal size={16} color="#9292a4" />
         </div>
       </aside>
 
@@ -522,7 +522,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           <div className="topbar-actions">
             <div className="topbar-tag"><span style={{ width: 6, height: 6, borderRadius: 8, background: runtimeMode === "direct-provider-development" ? "#58a67b" : "#d2a94f" }} />{runtimeMode === "direct-provider-development" ? "Direct provider development" : "Local development demo"}</div>
             <button className="icon-button" aria-label="Notifications" type="button" title="Notifications are not enabled in this demo"><Bell size={15} /></button>
-            {googleOAuthEnabled ? <GoogleAuthControl enabled={googleOAuthEnabled} /> : <div className="topbar-avatar" aria-label="Local demo account">TZ</div>}
+            {googleOAuthEnabled ? <GoogleAuthControl enabled={googleOAuthEnabled} /> : <div className="topbar-avatar" aria-label="Signed-in account">TZ</div>}
           </div>
         </header>
 
@@ -719,10 +719,10 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   function renderSettings() {
     return <>
       {renderHeading("Workspace settings", "Account and privacy controls for this development preview.")}
-      <div className="settings-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Profile</div><div className="panel-caption">No authenticated identity is configured</div></div></div>
+      <div className="settings-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Profile</div><div className="panel-caption">Your account identity is managed by Google</div></div></div>
         <div className="setting-row"><div><div className="setting-label">Workspace</div><div className="setting-detail">Current demo scope</div></div><div className="setting-value">Personal workspace</div></div>
-        <div className="setting-row"><div><div className="setting-label">Account</div><div className="setting-detail">{googleOAuthEnabled ? "Google sign-in is available" : "Authentication provider not connected"}</div></div><div className="setting-value">{googleOAuthEnabled ? "Google OAuth" : "Anonymous demo"}</div></div>
-        <div className="setting-row"><div><div className="setting-label">Sessions</div><div className="setting-detail">Managed by Google sign-in</div></div><div className="setting-value">{googleOAuthEnabled ? "Configured" : "Not configured"}</div></div>
+        <div className="setting-row"><div><div className="setting-label">Account</div><div className="setting-detail">Your Google account is connected</div></div><div className="setting-value">Google</div></div>
+        <div className="setting-row"><div><div className="setting-label">Sessions</div><div className="setting-detail">Managed by Google sign-in</div></div><div className="setting-value">Active</div></div>
       </section><section className="panel"><div className="panel-head"><div><div className="panel-title">Privacy & controls</div><div className="panel-caption">Local development environment</div></div></div>
         <div className="setting-row"><div><div className="setting-label">Prompt storage</div><div className="setting-detail">Stored only when you choose Save conversation</div></div><div className="setting-value">Opt in</div></div>
         <div className="setting-row"><div><div className="setting-label">Provider requests</div><div className="setting-detail">{runtimeMode === "direct-provider-development" ? "Configured provider adapters" : "Development mock adapter only"}</div></div><div className="setting-value">{runtimeMode === "direct-provider-development" ? "Provider billed" : "Disabled externally"}</div></div>

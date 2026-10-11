@@ -2,7 +2,7 @@
 
 ## Current runtime
 
-The repository is a Next.js App Router application. The root route renders the workspace UI. `components/workspace.tsx` owns presentation state and talks to the model, chat, and overview routes. Better Auth handles Google OAuth and PostgreSQL-backed user/session records; the direct provider development chat route requires a valid session. In mock mode, `/api/chat` reserves credits from an in-memory wallet, streams a simulated response, and settles estimated mock usage. In direct provider development mode, `/api/models` discovers configured text models and `/api/chat` uses AI SDK provider adapters to stream provider responses and returns provider-reported token usage when available.
+The repository is a Next.js App Router application. The root route renders the public landing page; `/sign-in` and `/sign-up` offer Google OAuth, and `/workspace` requires an active account before rendering the workspace UI. `components/workspace.tsx` owns presentation state and talks to protected model, chat, and overview routes. Better Auth handles Google OAuth and PostgreSQL-backed user/session records. In mock mode, `/api/chat` requires an active session, reserves credits from an in-memory wallet, streams a simulated response, and settles estimated mock usage. In direct provider development mode, `/api/models` discovers configured text models for active accounts and `/api/chat` uses AI SDK provider adapters to stream provider responses and returns provider-reported token usage when available.
 
 The mock routes are guarded by `getDemoStore()`: they return unavailable when `NODE_ENV=production` or `AI_PROVIDER_MODE` is not exactly `mock`. Direct provider development routes also return unavailable in production. That path bypasses the mock wallet and does not persist usage or calculate actual provider cost. The seeded demo balance and ledger are process-local and are not a substitute for persisted accounting.
 
@@ -35,6 +35,7 @@ The production design should replace the local store with one database transacti
 | Integer credit pricing and lot-order ledger | Implemented and unit tested in memory |
 | PostgreSQL / Drizzle schema and migrations | Applied to the configured Think Zone database; auth and billing data use PostgreSQL while chat usage remains in memory |
 | Google OAuth, sessions, verified-email check | Implemented with Better Auth and PostgreSQL; billing routes bind sessions to user-owned credit accounts |
+| Public landing, Google sign-up/sign-in, protected workspace and account APIs | Implemented; active Google session required for workspace, chat, models, overview, conversations, and billing |
 | Stripe hosted subscriptions, top-ups, Billing Portal, signed webhook grants | Implemented as a billing foundation; requires test-mode checkout validation and Stripe Portal configuration |
 | Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
 | Explicitly saved conversations, account-scoped history, rename/archive/restore/delete | Implemented using existing conversation tables; users opt in before transcripts are stored |

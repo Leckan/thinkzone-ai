@@ -8,3 +8,4 @@ coverage/
 drizzle/
 *.tsbuildinfo
 .DS_Store
+AGENTS.md
