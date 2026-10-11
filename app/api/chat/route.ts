@@ -5,6 +5,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { conversations, messages } from "@/db/schema";
 import { getDb } from "@/lib/db/client";
 import { getActiveUser } from "@/lib/auth/session";
+import { consumeUserRateLimit, getRateLimitFailure } from "@/lib/security/rate-limit";
 import { buildMockResponse, estimateMockTokens, getModel } from "@/lib/ai/catalog";
 import { resolveProviderModel } from "@/lib/ai/providers";
 import { customerChargeAtoms, maximumChargeAtoms, providerCostNanoUsd } from "@/lib/credits/accounting";
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Sign in with Google before sending a provider request." }, { status: 401 });
     }
+
+    const limit = await consumeUserRateLimit({ userId: user.id, scope: "provider-chat", limit: 10, windowMs: 60_000 });
+    const limitFailure = getRateLimitFailure(limit, "provider chat");
+    if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });
 
     const resolved = await resolveProviderModel(parsed.data.modelId);
     if (!resolved) return NextResponse.json({ error: "That model is unavailable for the configured provider credentials." }, { status: 404 });

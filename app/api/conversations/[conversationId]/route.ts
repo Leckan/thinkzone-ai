@@ -4,6 +4,7 @@ import { conversations, messages } from "@/db/schema";
 import { getDb } from "@/lib/db/client";
 import { getActiveUser } from "@/lib/auth/session";
 import { renameConversationSchema } from "@/lib/conversations/validation";
+import { consumeUserRateLimit, getRateLimitFailure } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -71,6 +72,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const parsed = bodySchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: "Invalid conversation update." }, { status: 400, headers: privateHeaders });
 
+  const limit = await consumeUserRateLimit({ userId: user.id, scope: "conversation-manage", limit: 20, windowMs: 60_000 });
+  const limitFailure = getRateLimitFailure(limit, "conversation management");
+  if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });
+
   const [conversation] = await getDb().update(conversations).set({
     ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
     ...(parsed.data.archived !== undefined ? { archivedAt: parsed.data.archived ? new Date() : null } : {}),
@@ -93,6 +98,10 @@ export async function DELETE(request: Request, { params }: RouteContext) {
 
   const conversationId = await getConversationId(params);
   if (!conversationId) return NextResponse.json({ error: "Conversation not found." }, { status: 404, headers: privateHeaders });
+
+  const limit = await consumeUserRateLimit({ userId: user.id, scope: "conversation-manage", limit: 20, windowMs: 60_000 });
+  const limitFailure = getRateLimitFailure(limit, "conversation management");
+  if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });
 
   const [deleted] = await getDb().delete(conversations)
     .where(and(eq(conversations.id, conversationId), eq(conversations.userId, user.id)))

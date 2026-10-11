@@ -30,7 +30,7 @@ Request JSON:
 
 The route accepts prompts up to 4,000 characters. In mock mode it accepts only the two development mock IDs and reserves a conservative maximum charge before creating an SSE response. `data:` events contain `delta`, then a final `done` event with simulated token counts, sample provider cost, and demo credit charge. These values are not provider-reported usage. `402` indicates insufficient sample credits, `409` indicates an already-used idempotency key or reservation conflict, and `503` indicates the mock gateway is disabled.
 
-In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
+In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route allows 10 provider-chat requests per account per minute; `429` includes `Retry-After`. If the shared rate-limit store cannot be reached, it returns `503` without calling the provider. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
 
 For an unsaved chat, optional `history` contains up to 24 prior user/assistant messages and is used only as request context. For a saved chat, send `conversationId` instead; the route verifies ownership and loads recent messages from PostgreSQL. These context messages are sent to the selected provider. The mock route continues to generate a single-turn simulated response.
 
@@ -46,6 +46,8 @@ Saved-conversation routes require an active Google-authenticated user, scope eve
 - `PATCH /api/conversations/{conversationId}` accepts a trimmed title and/or an `archived` boolean.
 - `DELETE /api/conversations/{conversationId}` permanently deletes the conversation and cascading messages.
 - `POST /api/conversations/{conversationId}/messages` appends one validated user/assistant message to an active, unarchived conversation.
+
+Conversation creation is limited to 5 requests per account per minute, message appends to 24 per minute, and rename/archive/restore/delete operations to 20 per minute. Rate limits use atomic PostgreSQL fixed-window counters keyed by account and action. Exceeded requests return `429` with `Retry-After`; if the rate-limit store is unavailable, mutations fail closed with `503`.
 
 Conversation history is not covered by request-log retention because inference request logging is not implemented. Deleting a saved conversation removes its messages from the application database.
 

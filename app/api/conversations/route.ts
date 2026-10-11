@@ -4,6 +4,7 @@ import { conversations, messages } from "@/db/schema";
 import { getDb } from "@/lib/db/client";
 import { getActiveUser } from "@/lib/auth/session";
 import { createConversationSchema } from "@/lib/conversations/validation";
+import { consumeUserRateLimit, getRateLimitFailure } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
   }
   const parsed = createConversationSchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: "Invalid conversation." }, { status: 400, headers: privateHeaders });
+
+  const limit = await consumeUserRateLimit({ userId: user.id, scope: "conversation-create", limit: 5, windowMs: 60_000 });
+  const limitFailure = getRateLimitFailure(limit, "conversation save");
+  if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });
 
   const firstPrompt = parsed.data.messages.find((message) => message.role === "user")?.content ?? "";
   const title = firstPrompt.replace(/\s+/g, " ").trim().slice(0, 200) || "New conversation";

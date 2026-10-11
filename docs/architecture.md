@@ -38,6 +38,7 @@ The production design should replace the local store with one database transacti
 | Stripe hosted subscriptions, top-ups, Billing Portal, signed webhook grants | Implemented as a billing foundation; requires test-mode checkout validation and Stripe Portal configuration |
 | Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
 | Explicitly saved conversations, account-scoped history, rename/archive/restore/delete | Implemented using existing conversation tables; users opt in before transcripts are stored |
+| Account-scoped rate limits for provider chat and conversation writes | Implemented with atomic PostgreSQL fixed-window counters; production network-level abuse controls and monitoring remain pending |
 | Persistent provider usage, actual cost calculation, and reconciliation | Not implemented; commercial review and verified rate cards pending |
 | Persistent-wallet inference, refunds, automatic tax, and payment disputes | Not implemented |
 | Durable queue, API keys, organizations, file processing | Schema/UI foundations only or not implemented |

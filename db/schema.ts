@@ -56,6 +56,18 @@ export const authVerifications = pgTable("auth_verifications", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("auth_verifications_identifier_idx").on(table.identifier)]);
 
+export const apiRateLimits = pgTable("api_rate_limits", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  scope: varchar("scope", { length: 64 }).notNull(),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull(),
+  requestCount: integer("request_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("api_rate_limits_user_scope_uq").on(table.userId, table.scope),
+  index("api_rate_limits_updated_idx").on(table.updatedAt),
+  check("api_rate_limits_count_nonnegative_check", sql`${table.requestCount} >= 0`),
+]);
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),

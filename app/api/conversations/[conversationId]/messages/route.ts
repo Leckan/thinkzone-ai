@@ -4,6 +4,7 @@ import { conversations, messages } from "@/db/schema";
 import { getDb } from "@/lib/db/client";
 import { getActiveUser } from "@/lib/auth/session";
 import { appendConversationMessageSchema } from "@/lib/conversations/validation";
+import { consumeUserRateLimit, getRateLimitFailure } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -27,6 +28,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   }
   const parsed = appendConversationMessageSchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: "Invalid conversation message." }, { status: 400, headers: privateHeaders });
+
+  const limit = await consumeUserRateLimit({ userId: user.id, scope: "conversation-write", limit: 24, windowMs: 60_000 });
+  const limitFailure = getRateLimitFailure(limit, "conversation write");
+  if (limitFailure) return NextResponse.json({ error: limitFailure.error }, { status: limitFailure.status, headers: limitFailure.headers });
 
   const result = await getDb().transaction(async (tx) => {
     const [conversation] = await tx.select({ id: conversations.id, updatedAt: conversations.updatedAt })

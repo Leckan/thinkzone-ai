@@ -37,7 +37,7 @@ npm run db:generate
 npm run db:migrate
 ```
 
-The configured Think Zone PostgreSQL database now has migrations `0000`–`0005` applied. Google OAuth users and sessions use PostgreSQL. Stripe transactions and credit grants use PostgreSQL, but the local chat and wallet routes do not use that persistent balance for usage metering.
+The configured Think Zone PostgreSQL database now has migrations `0000`–`0006` applied. Google OAuth users and sessions, billing records, explicitly saved conversations, and account-scoped rate-limit buckets use PostgreSQL. Stripe transactions and credit grants use PostgreSQL, but the local chat and wallet routes do not use that persistent balance for usage metering.
 
 ## Local demo behavior
 
