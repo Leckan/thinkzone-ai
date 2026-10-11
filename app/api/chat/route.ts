@@ -29,8 +29,8 @@ const bodySchema = z.object({
 
 const encoder = new TextEncoder();
 const targetMarginBps = 4_000;
-const maximumOutputTokens = 160;
-const maximumProviderOutputTokens = 512;
+const maximumOutputTokens = 4_096;
+const maximumProviderOutputTokens = 4_096;
 
 function event(data: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
@@ -122,13 +122,14 @@ export async function POST(request: Request) {
             if (cancelled) return;
             controller.enqueue(event({ type: "delta", text }));
           }
-          const usage = await generation.usage;
+          const [usage, finishReason] = await Promise.all([generation.usage, generation.finishReason]);
           if (!cancelled) {
             controller.enqueue(event({
               type: "done",
               mode: "direct-provider-development",
               provider: resolved.provider,
               modelId: parsed.data.modelId,
+              finishReason,
               usage: {
                 inputTokens: usage.inputTokens ?? null,
                 outputTokens: usage.outputTokens ?? null,

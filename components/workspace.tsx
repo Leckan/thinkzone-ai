@@ -54,6 +54,8 @@ type ChatMessage = {
   modelId?: string;
   providerName?: string;
   persistable?: boolean;
+  truncated?: boolean;
+  streamWarning?: string;
   usage?: { inputTokens: number | null; outputTokens: number | null; customerChargeAtoms?: string; status: string };
 };
 type SavedConversation = {
@@ -286,6 +288,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           error?: string;
           provider?: string;
           mode?: string;
+          finishReason?: string;
           usage?: { inputTokens: number | null; outputTokens: number | null; customerChargeAtoms?: string; status: string };
         };
         if (data.type === "delta" && data.text) {
@@ -293,10 +296,16 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content + data.text } : message));
         } else if (data.type === "done" && data.usage) {
           completed = true;
-          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, providerName: data.provider, usage: data.usage } : message));
+          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, providerName: data.provider, truncated: data.finishReason === "length", usage: data.usage } : message));
         } else if (data.type === "error") {
           responseFailed = true;
-          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: data.error ?? "The response failed.", persistable: false } : message));
+          const errorMessage = data.error ?? "The response failed.";
+          setMessages((current) => current.map((message) => message.id === assistantId ? {
+            ...message,
+            content: assistantText ? message.content : errorMessage,
+            streamWarning: assistantText ? errorMessage : undefined,
+            persistable: false,
+          } : message));
         }
       };
       while (true) {
@@ -307,10 +316,17 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
         buffer = frames.pop() ?? "";
         for (const frame of frames) handleFrame(frame);
       }
+      buffer += decoder.decode();
       if (buffer.trim()) handleFrame(buffer);
+      if (controller.signal.aborted) responseFailed = true;
       if (!completed && !controller.signal.aborted) {
         responseFailed = true;
-        setMessages((current) => current.map((message) => message.id === assistantId && !message.content ? { ...message, content: "The response ended before usage details arrived. Check the provider account before retrying.", persistable: false } : message));
+        setMessages((current) => current.map((message) => message.id === assistantId ? {
+          ...message,
+          content: message.content || "The response ended before completion details arrived. Check the provider account before retrying.",
+          streamWarning: message.content ? "The connection ended before the provider confirmed the response was complete." : undefined,
+          persistable: false,
+        } : message));
       }
       if (conversationId && assistantText && !responseFailed) {
         const savedAssistant = await fetch(`/api/conversations/${conversationId}/messages`, {
@@ -329,10 +345,20 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
         const stopMessage = runtimeMode === "direct-provider-development"
           ? "Generation stopped. The provider may still bill tokens it processed before cancellation."
           : "Generation stopped. The local demo reservation was released.";
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content || stopMessage, persistable: false } : message));
+        setMessages((current) => current.map((message) => message.id === assistantId ? {
+          ...message,
+          content: message.content || stopMessage,
+          streamWarning: message.content ? "Generation was stopped before the response was complete." : undefined,
+          persistable: false,
+        } : message));
       } else {
         setConversationError(failureMessage);
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: failureMessage, persistable: false } : message));
+        setMessages((current) => current.map((message) => message.id === assistantId ? {
+          ...message,
+          content: message.content || failureMessage,
+          streamWarning: message.content ? failureMessage : undefined,
+          persistable: false,
+        } : message));
       }
       if (conversationId) void refreshConversations();
       await refreshOverview();
@@ -615,6 +641,8 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
             {message.role === "assistant" && (message.usage || message.content) && <div className="message-meta"><span>{modelName(message.modelId ?? modelId, availableModels)}</span>{message.usage && (runtimeMode === "direct-provider-development"
               ? <><span>·</span><span>{message.usage.status === "provider-reported" && message.usage.inputTokens != null && message.usage.outputTokens != null ? `${(message.usage.inputTokens + message.usage.outputTokens).toLocaleString()} provider-reported tokens` : "Provider usage unavailable"}</span><span>·</span><span>Provider billed directly</span></>
               : <><span>·</span><span>{(message.usage.inputTokens ?? 0) + (message.usage.outputTokens ?? 0)} simulated tokens</span><span>·</span><span>{message.usage.customerChargeAtoms ? `${formatTzc(BigInt(message.usage.customerChargeAtoms))} TZC demo charge` : "No charge details"}</span></>)}</div>}
+            {message.truncated && <div className="message-stream-warning" role="status">This reply reached the model&apos;s output limit. Ask it to continue for the rest.</div>}
+            {message.streamWarning && <div className="message-stream-warning" role="status">{message.streamWarning}</div>}
           </div>
           {message.role === "user" && <span className="message-avatar user-avatar">TZ</span>}
         </div>)}

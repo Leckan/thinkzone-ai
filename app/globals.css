@@ -193,6 +193,7 @@ h1 { margin: 7px 0 5px; color: #202333; font-size: clamp(25px, 2.3vw, 32px); lin
 .transcript-message.user .transcript-markdown { color: #414054; }
 .transcript-markdown .markdown-source { max-width: 100%; margin: 0; overflow: auto; color: inherit; background: transparent; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
 .transcript-pending { color: #999; }
+.message-stream-warning { margin-top: 8px; color: #8a6831; font-size: 10px; line-height: 1.5; }
 .chat-composer { padding: 13px 16px 14px; border-top: 1px solid #f0f0f4; background: white; }
 .composer-box { display: flex; align-items: flex-end; gap: 10px; border: 1px solid #e6e5ec; padding: 10px 11px; border-radius: 11px; box-shadow: 0 4px 16px #2a28500a; }
 .composer-box:focus-within { border-color: #c9c1f7; box-shadow: 0 0 0 3px #8979e513; }
