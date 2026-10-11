@@ -14,8 +14,8 @@ const googleProvider = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT
       },
     }
   : {};
-const appBaseURL = process.env.APP_URL ?? "http://localhost:3000";
-const baseURL = process.env.BETTER_AUTH_URL ?? (
+const appBaseURL = process.env.APP_URL || "http://localhost:3000";
+const baseURL = process.env.BETTER_AUTH_URL || (
   process.env.NODE_ENV === "development"
     ? { allowedHosts: ["localhost:*", "127.0.0.1:*"], protocol: "auto" as const, fallback: appBaseURL }
     : appBaseURL

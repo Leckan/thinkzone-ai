@@ -14,7 +14,7 @@ The mock routes are guarded by `getDemoStore()`: they return unavailable when `N
 - `lib/auth.ts` and `app/api/auth/[...all]/route.ts`: Google OAuth, encrypted OAuth-token storage, and session handling with Better Auth.
 - `db/schema.ts` and `db/migrations`: PostgreSQL tables for auth and users, organizations, plans, subscriptions, model/provider eligibility, versioned rate cards, credit accounts/lots, usage, reservations, ledger, payment event idempotency, API-key hashes, conversations, and audit records.
 
-The PostgreSQL schema is a foundation for most product data. Google auth records use PostgreSQL, but there is no production repository/service layer connecting the chat route to wallet accounting, and no worker or webhook processor. In production, these gaps must be completed before enabling customer access.
+The PostgreSQL schema stores Google auth, Stripe customers, subscriptions, payment transactions, credit lots, event receipts, and ledger grants. Stripe Checkout and webhook services use PostgreSQL transactions. The chat route still has no production repository/service layer connecting inference to the persistent wallet, and no background worker. These gaps must be completed before enabling customer access.
 
 ## Data and request path
 
@@ -33,10 +33,11 @@ The production design should replace the local store with one database transacti
 | Responsive workspace, dashboard, local chat, model selector, usage view | Implemented for local demo |
 | Streaming response UX and cancellation | Implemented for local mock only |
 | Integer credit pricing and lot-order ledger | Implemented and unit tested in memory |
-| PostgreSQL / Drizzle schema and migrations | Applied to the configured Think Zone database; Better Auth uses auth tables while billing repositories remain unconnected |
-| Google OAuth, sessions, verified-email check | Implemented with Better Auth and PostgreSQL; not yet connected to subscriptions, wallet ownership, or general route authorization |
+| PostgreSQL / Drizzle schema and migrations | Applied to the configured Think Zone database; auth and billing data use PostgreSQL while chat usage remains in memory |
+| Google OAuth, sessions, verified-email check | Implemented with Better Auth and PostgreSQL; billing routes bind sessions to user-owned credit accounts |
+| Stripe hosted subscriptions, top-ups, Billing Portal, signed webhook grants | Implemented as a billing foundation; requires test-mode checkout validation and Stripe Portal configuration |
 | Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
 | Persistent provider usage, actual cost calculation, and reconciliation | Not implemented; commercial review and verified rate cards pending |
-| Stripe subscriptions, checkout, webhooks, top-ups | Not implemented |
+| Persistent-wallet inference, refunds, automatic tax, and payment disputes | Not implemented |
 | Durable queue, API keys, organizations, file processing | Schema/UI foundations only or not implemented |
 | Public marketing/legal pages and admin console | Not implemented |

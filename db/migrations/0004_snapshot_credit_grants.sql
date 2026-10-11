@@ -1,0 +1,2 @@
+ALTER TABLE "payment_transactions" ADD COLUMN "credit_atoms" bigint;--> statement-breakpoint
+ALTER TABLE "payment_transactions" ADD CONSTRAINT "payment_transactions_credit_atoms_positive_check" CHECK ("payment_transactions"."credit_atoms" is null or "payment_transactions"."credit_atoms" > 0);

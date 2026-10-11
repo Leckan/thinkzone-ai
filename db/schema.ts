@@ -82,6 +82,8 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   name: varchar("name", { length: 100 }).notNull(),
   monthlyPriceCents: integer("monthly_price_cents").notNull(),
   includedCreditAtoms: bigint("included_credit_atoms", { mode: "bigint" }).notNull(),
+  stripeProductId: varchar("stripe_product_id", { length: 180 }).unique(),
+  stripePriceId: varchar("stripe_price_id", { length: 180 }).unique(),
   currency: varchar("currency", { length: 3 }).notNull().default("USD"),
   features: jsonb("features").notNull().default({}),
   active: boolean("active").notNull().default(true),
@@ -123,6 +125,7 @@ export const creditAccounts = pgTable("credit_accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerType: varchar("owner_type", { length: 24 }).notNull(),
   ownerId: uuid("owner_id").notNull(),
+  paymentCustomerId: varchar("payment_customer_id", { length: 180 }).unique(),
   currency: varchar("currency", { length: 3 }).notNull().default("USD"),
   cachedAvailableAtoms: bigint("cached_available_atoms", { mode: "bigint" }).notNull().default(sql`0`),
   cachedReservedAtoms: bigint("cached_reserved_atoms", { mode: "bigint" }).notNull().default(sql`0`),
@@ -277,6 +280,34 @@ export const paymentEvents = pgTable("payment_events", {
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
   processedAt: timestamp("processed_at", { withTimezone: true }),
 }, (table) => [check("payment_events_status_check", sql`${table.status} in ('received', 'processed', 'ignored', 'failed')`)]);
+
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  accountId: uuid("account_id").notNull().references(() => creditAccounts.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  kind: varchar("kind", { length: 24 }).notNull(),
+  status: varchar("status", { length: 24 }).notNull().default("pending"),
+  checkoutSessionId: varchar("checkout_session_id", { length: 180 }).unique(),
+  invoiceId: varchar("invoice_id", { length: 180 }).unique(),
+  paymentIntentId: varchar("payment_intent_id", { length: 180 }),
+  subscriptionId: varchar("subscription_id", { length: 180 }),
+  planId: uuid("plan_id").references(() => subscriptionPlans.id),
+  packageId: uuid("package_id").references(() => creditPackages.id),
+  amountCents: integer("amount_cents").notNull(),
+  creditAtoms: bigint("credit_atoms", { mode: "bigint" }),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  receiptUrl: text("receipt_url"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("payment_transactions_account_created_idx").on(table.accountId, table.createdAt),
+  index("payment_transactions_user_status_idx").on(table.userId, table.status),
+  check("payment_transactions_kind_check", sql`${table.kind} in ('subscription', 'top_up')`),
+  check("payment_transactions_status_check", sql`${table.status} in ('pending', 'paid', 'failed', 'canceled', 'expired', 'refunded')`),
+  check("payment_transactions_amount_nonnegative_check", sql`${table.amountCents} >= 0`),
+  check("payment_transactions_credit_atoms_positive_check", sql`${table.creditAtoms} is null or ${table.creditAtoms} > 0`),
+]);
 
 export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),

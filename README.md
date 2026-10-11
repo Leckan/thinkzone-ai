@@ -1,8 +1,8 @@
 # Think Zone AI
 
-Think Zone AI is an early, local-only product slice for a multi-model AI workspace. It includes an interactive dashboard, a streaming development mock chat, integer credit pricing, a reservation and settlement ledger, a PostgreSQL/Drizzle schema, and accounting unit tests.
+Think Zone AI is an early product slice for a multi-model AI workspace. It includes an interactive dashboard, a streaming development mock chat, integer credit pricing, a reservation and settlement ledger, Google OAuth, PostgreSQL/Drizzle persistence, and a Stripe Checkout/webhook billing foundation.
 
-**This is not ready for customers or public deployment.** The app has Google OAuth sign-in and a development-only direct provider path, but no payment processor, persistent conversations, production credit service, durable provider usage, or cost reconciliation. Its mock wallet and usage live in server memory and reset when the local server restarts. Direct provider inference remains development-only.
+**This is not ready for customers or public deployment.** Stripe can create subscription and top-up Checkout sessions, synchronize subscription status, and grant persistent credits through signed, idempotent webhook events. However, the local chat wallet remains in-memory and the direct provider path is development-only; inference does not spend the persistent billing balance. Do not enable live payments until persistent usage accounting, provider approvals, refund handling, and production authorization are complete.
 
 ## Local development
 
@@ -37,7 +37,7 @@ npm run db:generate
 npm run db:migrate
 ```
 
-The configured Think Zone PostgreSQL database was verified empty and the included migrations were applied. Google OAuth users and sessions use PostgreSQL; the local chat and wallet routes do not use PostgreSQL for usage metering. Transactional wallet services are not implemented. Do not infer runtime billing readiness from the schema or migration status.
+The configured Think Zone PostgreSQL database now has migrations `0000`–`0005` applied. Google OAuth users and sessions use PostgreSQL. Stripe transactions and credit grants use PostgreSQL, but the local chat and wallet routes do not use that persistent balance for usage metering.
 
 ## Local demo behavior
 
@@ -48,11 +48,12 @@ The configured Think Zone PostgreSQL database was verified empty and the include
 - The ledger uses integer credit atoms. `1 TZC = 1,000 atoms`; for the example pricing conversion, one atom represents `$0.000001` of customer charge.
 - The demo wallet is in-memory only. It is not safe for multiple processes, persistence, or real customer balances.
 - Conversation messages stay in browser memory and disappear when the page reloads.
-- Subscription, top-up, API-key, organization, file, admin, and real provider flows are not enabled.
+- Subscription and top-up checkout require Stripe test credentials, a migrated PostgreSQL database, Google sign-in, and the configured webhook. Stripe credits are persistent but are not spent by this local chat build.
+- API-key, organization, file, admin, refunds, and production inference flows are not enabled.
 
 ## Environment variables
 
-See [.env.example](.env.example). `AI_PROVIDER_MODE=mock` runs the local simulation; `AI_PROVIDER_MODE=provider-dev` enables direct local model calls. Google OAuth uses `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, and `DATABASE_URL`; `BETTER_AUTH_URL` overrides the base URL derived from `APP_URL`. `REDIS_URL`, payment, storage, and observability integrations are not used by the current runtime. Never put credentials in `NEXT_PUBLIC_*` variables.
+See [.env.example](.env.example). `AI_PROVIDER_MODE=mock` runs the local simulation; `AI_PROVIDER_MODE=provider-dev` enables direct local model calls. Google OAuth uses `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, and `DATABASE_URL`; `BETTER_AUTH_URL` overrides the base URL derived from `APP_URL`. Stripe billing uses server-side `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `APP_URL`. Hosted Checkout redirects to Stripe's URL; `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is reserved for a future embedded Elements flow and is not read by the current runtime. Never put secret credentials in `NEXT_PUBLIC_*` variables.
 
 ## Read next
 

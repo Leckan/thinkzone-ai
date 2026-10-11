@@ -21,6 +21,18 @@ The in-memory ledger grants credits by lot, reserves from eligible lots in discl
 
 The demo store is single-process memory and resets on restart. It does not provide durable concurrency control across server instances. The PostgreSQL schema provides uniqueness and check constraints, but a transactional production service still needs implementation.
 
+## Stripe billing implementation
+
+The authenticated billing screen reads active plans and top-up packages from PostgreSQL. The initial database configuration uses the product's pricing hypotheses (Starter `$15`, Pro `$30`, Power `$60` monthly; top-ups `$5`, `$10`, `$25`) and can be changed by updating the database records. Plan and package prices are never accepted from browser input. Monthly Stripe Products and Prices are created lazily from those records and saved on the plan row; top-ups use server-created one-time Checkout line items.
+
+Checkout sessions redirect to Stripe-hosted Checkout. A Google-authenticated active user can view their current subscription, transaction history, wallet balance, purchase top-ups, and open the Stripe Billing Portal. The Portal must be enabled in Stripe Dashboard. To expose plan changes there, enable the configured Think Zone products and prices in the Portal settings.
+
+`POST /api/webhooks/stripe` validates the raw request body and signature. The event receipt, subscription/payment transaction, credit lot, immutable ledger grant, and cached wallet increment run in a single database transaction. A unique Stripe event ID, checkout/invoice lot grant reference, and ledger idempotency key prevent replayed deliveries from issuing credits twice. Top-up credit amounts are snapshotted when Checkout is created; subscription credit amounts are recorded in Stripe Price metadata. Subscription credits expire at period end, while purchased credits do not expire.
+
+The user interface success redirect only displays a pending confirmation message. It does not grant funds. Stripe test mode and Stripe CLI should be used for local validation. Do not use live keys until the product's prices and provider commercial terms are approved.
+
+The current local mock chat and direct-provider development path do not spend the persisted billing wallet. Database billing balance and model usage are therefore not connected end to end yet. Refund-driven credit reversals, automatic tax, discount codes, and automatic recharge are not implemented. Keep plan switching disabled in the Stripe Portal until its configured price mapping and wallet policy have been validated.
+
 ## Production requirements still open
 
 - Persist wallet, lot allocation, request, reservation, settlement, and refund operations in PostgreSQL transactions.
@@ -28,6 +40,6 @@ The demo store is single-process memory and resets on restart. It does not provi
 - Resolve and persist an immutable rate-card version before the provider call.
 - Add provider-specific authoritative usage and a reconciliation state machine.
 - Treat ambiguous provider timeouts as reconciliation work, never as a safe automatic retry by default.
-- Issue subscription and purchased lots only after verified, idempotent payment events.
+- Connect persistent wallet reservations and settlements to inference before selling credits for model usage.
 - Keep provider cost, customer charge, and infrastructure overhead in separate fields.
 - Define customer-visible refund, failed-stream, and delayed-usage policies before launch.

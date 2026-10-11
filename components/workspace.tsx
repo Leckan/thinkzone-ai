@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { modelCatalog } from "@/lib/ai/catalog";
 import { formatTzc } from "@/lib/credits/accounting";
 import { GoogleAuthControl } from "@/components/google-auth-control";
+import { BillingPanel } from "@/components/billing-panel";
+import { MarkdownContent } from "@/components/markdown-content";
 
 type Screen = "Overview" | "New chat" | "Conversations" | "Model catalog" | "Usage & credits" | "Subscription" | "Developer API" | "Settings";
 type RuntimeMode = "loading" | "development-mock" | "direct-provider-development" | "unavailable";
@@ -102,6 +104,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   const [modelId, setModelId] = useState(modelCatalog[0].id);
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [markdownView, setMarkdownView] = useState<"rendered" | "source">("rendered");
   const [isSending, setIsSending] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -254,6 +257,19 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
 
   const stopGeneration = () => abortRef.current?.abort();
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); void sendPrompt(); };
+  const renderMarkdownToggle = () => (
+    <button
+      className={`markdown-toggle ${markdownView === "source" ? "active" : ""}`}
+      type="button"
+      aria-label={markdownView === "rendered" ? "Show Markdown source" : "Show formatted Markdown"}
+      aria-pressed={markdownView === "source"}
+      title={markdownView === "rendered" ? "Show Markdown source" : "Show formatted Markdown"}
+      onClick={() => setMarkdownView((view) => view === "rendered" ? "source" : "rendered")}
+    >
+      <Code2 size={13} />
+      {markdownView === "rendered" ? "Source" : "Rendered"}
+    </button>
+  );
 
   return (
     <div className="app-shell">
@@ -391,11 +407,11 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
     const selectedModel = availableModels.find((model) => model.id === modelId);
     if (!selectedModel) return <section className="panel empty-state" style={{ padding: 50 }}><Brain className="empty-icon" size={21} /><div>No chat model is available.</div><p style={{ margin: "7px 0 0" }}>{modelError || "Check the provider credentials and model catalog."}</p></section>;
     return <section className="panel chat-card">
-      <div className="chat-toolbar"><div className="model-select-wrap"><span className={`model-card-icon ${selectedModel.accent ?? "violet"}`} style={{ width: 29, height: 29 }}><Sparkles size={14} /></span><select aria-label="Choose model" value={modelId} onChange={(event) => setModelId(event.target.value)}>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.providerName}</option>)}</select><div className="model-detail"><span style={{ color: "#80b396" }}>●</span> {runtimeMode === "direct-provider-development" ? selectedModel.providerName : "Simulated · development only"}</div></div><button className="icon-button" type="button" aria-label="New conversation" title="Clear local transcript" onClick={() => setMessages([])}><Plus size={15} /></button></div>
+      <div className="chat-toolbar"><div className="model-select-wrap"><span className={`model-card-icon ${selectedModel.accent ?? "violet"}`} style={{ width: 29, height: 29 }}><Sparkles size={14} /></span><select aria-label="Choose model" value={modelId} onChange={(event) => setModelId(event.target.value)}>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.providerName}</option>)}</select><div className="model-detail"><span style={{ color: "#80b396" }}>●</span> {runtimeMode === "direct-provider-development" ? selectedModel.providerName : "Simulated · development only"}</div></div><div className="chat-toolbar-actions">{renderMarkdownToggle()}<button className="icon-button" type="button" aria-label="New conversation" title="Clear local transcript" onClick={() => setMessages([])}><Plus size={15} /></button></div></div>
       <div className="chat-messages" ref={messagesRef}>
         {messages.length === 0 ? <div className="chat-welcome"><div className="welcome-spark"><Sparkles size={23} /></div><h2>What would you like to think through?</h2><p>{runtimeMode === "direct-provider-development" ? `Choose a live model. Prompts go to ${selectedModel.providerName} and are billed to the API key owner.` : "Choose a simulated model, send a prompt, and inspect the demo usage charge. Nothing is sent to an external provider."}</p><div className="suggestion-grid">{suggestions.map((item) => <button className="suggestion" key={item.title} type="button" onClick={() => void sendPrompt(item.prompt)}><strong>{item.title}</strong>{item.prompt}</button>)}</div></div> : messages.map((message) => <div className={`message-row ${message.role}`} key={message.id}>
           {message.role === "assistant" && <span className="message-avatar"><Sparkles size={14} /></span>}
-          <div><div className="message-content">{message.content || (isSending && message.role === "assistant" ? <span style={{ color: "#999" }}><LoaderCircle size={13} className="spin" /> Thinking…</span> : null)}</div>
+          <div><div className="message-content">{message.content ? <MarkdownContent content={message.content} view={markdownView} isStreaming={isSending && message.id === messages[messages.length - 1]?.id} className="markdown-response" /> : isSending && message.role === "assistant" ? <span style={{ color: "#999" }}><LoaderCircle size={13} className="spin" /> Thinking…</span> : null}</div>
             {message.role === "assistant" && (message.usage || message.content) && <div className="message-meta"><span>{modelName(message.modelId ?? modelId, availableModels)}</span>{message.usage && (runtimeMode === "direct-provider-development"
               ? <><span>·</span><span>{message.usage.status === "provider-reported" && message.usage.inputTokens != null && message.usage.outputTokens != null ? `${(message.usage.inputTokens + message.usage.outputTokens).toLocaleString()} provider-reported tokens` : "Provider usage unavailable"}</span><span>·</span><span>Provider billed directly</span></>
               : <><span>·</span><span>{(message.usage.inputTokens ?? 0) + (message.usage.outputTokens ?? 0)} simulated tokens</span><span>·</span><span>{message.usage.customerChargeAtoms ? `${formatTzc(BigInt(message.usage.customerChargeAtoms))} TZC demo charge` : "No charge details"}</span></>)}</div>}
@@ -473,15 +489,14 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   function renderConversations() {
     return <>
       {renderHeading("Conversations", "Chat transcripts are kept in this browser session only.", <button type="button" className="button-primary" onClick={() => openScreen("New chat")}><Plus size={14} /> New chat</button>)}
-      {messages.length === 0 ? <section className="panel empty-state" style={{ padding: 50 }}><MessageSquare className="empty-icon" size={21} /><div>No saved conversations in this local demo.</div><p style={{ margin: "7px 0 16px" }}>Server-side conversation storage and account sync are not configured.</p><button className="button-secondary" type="button" onClick={() => openScreen("New chat")}>Start a chat <ChevronRight size={12} /></button></section> : <section className="panel"><div className="panel-head"><div><div className="panel-title">Current local transcript</div><div className="panel-caption">Not saved after this page reloads</div></div><button className="button-secondary" type="button" onClick={() => setMessages([])}>Clear transcript</button></div>{messages.map((message) => <div className="setting-row" key={message.id}><div><div className="setting-label">{message.role === "user" ? "You" : modelName(message.modelId ?? modelId, availableModels)}</div><div className="setting-detail">{message.content.slice(0, 180) || "Generating…"}</div></div><span className="setting-value">{shortDate(message.createdAt)}</span></div>)}</section>}
+      {messages.length === 0 ? <section className="panel empty-state" style={{ padding: 50 }}><MessageSquare className="empty-icon" size={21} /><div>No saved conversations in this local demo.</div><p style={{ margin: "7px 0 16px" }}>Server-side conversation storage and account sync are not configured.</p><button className="button-secondary" type="button" onClick={() => openScreen("New chat")}>Start a chat <ChevronRight size={12} /></button></section> : <section className="panel"><div className="panel-head"><div><div className="panel-title">Current local transcript</div><div className="panel-caption">Not saved after this page reloads</div></div><div className="transcript-actions">{renderMarkdownToggle()}<button className="button-secondary" type="button" onClick={() => setMessages([])}>Clear transcript</button></div></div><div className="conversation-transcript">{messages.map((message) => <article className={`transcript-message ${message.role}`} key={message.id}><div className="transcript-message-heading"><span>{message.role === "user" ? "You" : modelName(message.modelId ?? modelId, availableModels)}</span><time dateTime={new Date(message.createdAt).toISOString()}>{shortDate(message.createdAt)}</time></div>{message.content ? <MarkdownContent content={message.content} view={markdownView} isStreaming={isSending && message.id === messages[messages.length - 1]?.id} className="transcript-markdown" /> : <div className="transcript-pending">Generating…</div>}</article>)}</div></section>}
     </>;
   }
 
   function renderSubscription() {
     return <>
-      {renderHeading("Subscription", "Plan definitions are a foundation only; checkout is not connected.")}
-      <section className="panel" style={{ padding: 20, marginTop: 16 }}><div className="metric-icon"><CreditCard size={16} /></div><h2 style={{ fontSize: 16, margin: "14px 0 6px", letterSpacing: "-.03em" }}>No Think Zone subscription</h2><p className="page-subtitle" style={{ lineHeight: 1.6 }}>{runtimeMode === "direct-provider-development" ? "Direct model requests are billed by the selected provider to the account behind its API key. Think Zone plans, checkout, credit grants, and invoices are not configured." : "This local demo uses sample credits. Subscription plans, Stripe checkout, billing webhooks, receipts, and renewal grants are not configured, so no Think Zone payment can be made here."}</p><button className="button-secondary" type="button" disabled style={{ marginTop: 15, opacity: .55 }}>Billing unavailable in development</button></section>
-      <div className="notice-panel"><strong>Before launch:</strong> configure database-backed plans and Stripe test credentials, verify webhook signatures, and make credit grants idempotent. A browser redirect must never grant credits.</div>
+      {renderHeading("Subscription", "Manage monthly plans, credit top-ups, and payment history.")}
+      <BillingPanel />
     </>;
   }
 

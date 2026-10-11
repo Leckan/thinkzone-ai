@@ -22,6 +22,27 @@
       "when": 1791704610712,
       "tag": "0002_wise_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791706387264,
+      "tag": "0003_stripe_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791706537050,
+      "tag": "0004_snapshot_credit_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791706756364,
+      "tag": "0005_stripe_plan_prices",
+      "breakpoints": true
     }
   ]
 }

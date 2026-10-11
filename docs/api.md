@@ -1,6 +1,6 @@
 # API status
 
-The implemented routes are local development endpoints. The mock wallet endpoints require `AI_PROVIDER_MODE=mock`; the live provider catalog and inference path require `AI_PROVIDER_MODE=provider-dev`. Both modes are disabled in production. Google OAuth sessions are used to protect direct provider inference, but this is not production authorization for the full product.
+The model, chat, and overview routes remain local development endpoints. Stripe billing routes require a Google-authenticated active user, PostgreSQL, and `STRIPE_SECRET_KEY`. Checkout prices are loaded from active database plans and packages. Stripe webhook events are the only mechanism that grants persistent billing credits.
 
 ## `GET, POST /api/auth/[...all]`
 
@@ -33,3 +33,33 @@ The route accepts prompts up to 4,000 characters. In mock mode it accepts only t
 In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
 
 The route is not a production inference API: it has no durable usage accounting, customer billing, developer key, or distributed idempotency. Production API routes listed in the original product requirements remain unimplemented.
+
+## `GET /api/billing/subscription`
+
+Requires an authenticated active user and returns the user's persistent wallet balance, active subscription plans, active top-up packages, current subscription, and recent transactions. The response is private and marked `no-store`.
+
+## `POST /api/billing/checkout`
+
+Starts hosted Stripe Checkout for an active monthly plan. The browser sends a `planKey` and UUID `idempotencyKey`; it cannot submit a price or credit amount.
+
+```json
+{ "planKey": "starter", "idempotencyKey": "c2cc4436-803e-46cb-bdf5-cc33f0cc3ff6" }
+```
+
+Returns `{ "url": "https://checkout.stripe.com/..." }`. An account with a current subscription must use the Billing Portal to manage it.
+
+## `POST /api/billing/top-ups/checkout`
+
+Starts a one-time hosted Checkout session for an active credit package. It accepts `packageKey` and a UUID `idempotencyKey`; the server stores the expected cents and credit amount before returning the Checkout URL. Credits are not granted on redirect.
+
+## `POST /api/billing/portal`
+
+Creates a Stripe Billing Portal session for the signed-in user's Stripe customer. The Stripe Dashboard must have a customer portal configuration enabled.
+
+## `POST /api/webhooks/stripe`
+
+Unauthenticated Stripe webhook endpoint. It verifies the raw request body with `Stripe-Signature` and `STRIPE_WEBHOOK_SECRET`. It handles completed/async Checkout payments, subscription lifecycle updates, paid subscription invoices, and failed invoices. Event receipts, transaction rows, credit lots, ledger entries, and cached wallet increments are committed in one PostgreSQL transaction. Repeated Stripe event deliveries and repeated invoice/Checkout grants are idempotent.
+
+The endpoint requires these events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.paid`, and `invoice.payment_failed`.
+
+Persistent billing credits are not yet connected to the local chat route's in-memory demo wallet or direct-provider development mode. Do not treat a visible billing balance as spendable by model requests in this build.
