@@ -18,7 +18,7 @@ Open [http://localhost:3000](http://localhost:3000). The local mock adapter is e
 
 Google sign-in uses the configured `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, with `AUTH_SECRET` for sessions and `DATABASE_URL` for user and session records. In Google Cloud Console, register `{BETTER_AUTH_URL or APP_URL}/api/auth/callback/google` as an authorized redirect URI. Set `BETTER_AUTH_URL` when the app is served from an origin different from `APP_URL` (for example, a non-default local port). Only accounts with Google-verified email addresses can sign in.
 
-To use your provider accounts locally, set `AI_PROVIDER_MODE=provider-dev` in `.env` and restart the server. Sign in with Google first. The app discovers text models for configured OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI keys. Submitting a prompt sends it to the selected provider, which bills the account behind that key. This path does not reserve or deduct Think Zone credits, calculate a platform charge, or persist transcripts or usage. It is disabled in production.
+To use your provider accounts locally, set `AI_PROVIDER_MODE=provider-dev` in `.env` and restart the server. Sign in with Google first. The app discovers text models for configured OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI keys. Submitting a prompt sends it to the selected provider, which bills the account behind that key. This path does not reserve or deduct Think Zone credits, calculate a platform charge, or persist inference usage. Chats stay in browser memory unless you choose **Save conversation**; saved transcripts are stored in your account and can be renamed, archived, restored, or permanently deleted. It is disabled in production.
 
 ## Commands
 
@@ -47,7 +47,7 @@ The configured Think Zone PostgreSQL database now has migrations `0000`–`0005`
 - Reservations are released when the local stream is canceled or fails.
 - The ledger uses integer credit atoms. `1 TZC = 1,000 atoms`; for the example pricing conversion, one atom represents `$0.000001` of customer charge.
 - The demo wallet is in-memory only. It is not safe for multiple processes, persistence, or real customer balances.
-- Conversation messages stay in browser memory and disappear when the page reloads.
+- Unstored conversation messages stay in browser memory and disappear when the page reloads. Choosing Save writes the transcript to the signed-in account's PostgreSQL records; saved conversations can be deleted from the Conversations page.
 - Subscription and top-up checkout require Stripe test credentials, a migrated PostgreSQL database, Google sign-in, and the configured webhook. Stripe credits are persistent but are not spent by this local chat build.
 - API-key, organization, file, admin, refunds, and production inference flows are not enabled.
 

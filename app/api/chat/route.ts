@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { streamText } from "ai";
+import { streamText, type ModelMessage } from "ai";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { conversations, messages } from "@/db/schema";
+import { getDb } from "@/lib/db/client";
+import { getActiveUser } from "@/lib/auth/session";
 import { buildMockResponse, estimateMockTokens, getModel } from "@/lib/ai/catalog";
 import { resolveProviderModel } from "@/lib/ai/providers";
 import { customerChargeAtoms, maximumChargeAtoms, providerCostNanoUsd } from "@/lib/credits/accounting";
 import { getDemoStore } from "@/lib/server/demo-store";
+import { conversationHistorySchema } from "@/lib/conversations/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +18,12 @@ const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(4_000),
   modelId: z.string().min(3).max(220),
   idempotencyKey: z.string().uuid(),
+  conversationId: z.string().uuid().optional(),
+  history: conversationHistorySchema.default([]),
+}).superRefine((body, context) => {
+  if (body.conversationId && body.history.length > 0) {
+    context.addIssue({ code: "custom", message: "Saved conversations provide their own context." });
+  }
 });
 
 const encoder = new TextEncoder();
@@ -41,21 +52,61 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid chat request.", details: parsed.error.flatten() }, { status: 400 });
 
   if (providerDevEnabled) {
-    const { auth } = await import("@/lib/auth");
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (!session) {
+    const user = await getActiveUser(request);
+    if (!user) {
       return NextResponse.json({ error: "Sign in with Google before sending a provider request." }, { status: 401 });
     }
 
     const resolved = await resolveProviderModel(parsed.data.modelId);
     if (!resolved) return NextResponse.json({ error: "That model is unavailable for the configured provider credentials." }, { status: 404 });
 
+    let context: ModelMessage[];
+    if (parsed.data.conversationId) {
+      const [conversation] = await getDb().select({ id: conversations.id })
+        .from(conversations)
+        .where(and(
+          eq(conversations.id, parsed.data.conversationId),
+          eq(conversations.userId, user.id),
+          isNull(conversations.archivedAt),
+        ))
+        .limit(1);
+      if (!conversation) return NextResponse.json({ error: "Saved conversation not found or archived." }, { status: 404 });
+
+      const recent = await getDb().select({ role: messages.role, content: messages.content })
+        .from(messages)
+        .where(eq(messages.conversationId, conversation.id))
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(24);
+      const latest = recent[0];
+      if (latest?.role !== "user" || latest.content !== parsed.data.prompt) {
+        return NextResponse.json({ error: "Save the latest message before requesting a response." }, { status: 409 });
+      }
+
+      let totalCharacters = 0;
+      const selected = [];
+      for (const message of recent) {
+        if (message.role !== "user" && message.role !== "assistant") continue;
+        if (selected.length >= 24 || totalCharacters + message.content.length > 60_000) break;
+        selected.push(message);
+        totalCharacters += message.content.length;
+      }
+      context = selected.reverse().map((message) => ({
+        role: message.role as "user" | "assistant",
+        content: message.content,
+      }));
+    } else {
+      context = [
+        ...parsed.data.history.map((message) => ({ role: message.role, content: message.content })),
+        { role: "user", content: parsed.data.prompt },
+      ];
+    }
+
     const abortController = new AbortController();
     const abortFromRequest = () => abortController.abort(request.signal.reason);
     request.signal.addEventListener("abort", abortFromRequest, { once: true });
     const generation = streamText({
       model: resolved.model,
-      prompt: parsed.data.prompt,
+      messages: context,
       maxOutputTokens: maximumProviderOutputTokens,
       maxRetries: 0,
       abortSignal: abortController.signal,

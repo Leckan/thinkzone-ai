@@ -6,6 +6,8 @@
 
 The ledger references request, lot, or payment records where applicable. A unique account/idempotency key prevents duplicate usage requests; unique provider event IDs prevent duplicate payment-event processing; unique lot grant references prevent repeated lot creation. Payment transactions snapshot the expected top-up credits and amount so later catalog edits do not change an in-flight checkout. Rate cards carry a model/version and effective time. Model availability and provider commercial approval are separate fields; the schema prevents enabling a provider without an approved status.
 
+Saved conversations use the existing `conversations` and `messages` tables. A transcript is written only after the user explicitly saves it. Conversation API queries scope rows to the active user's ID; messages cascade when the conversation is deleted. Provider-development requests load a bounded recent message context after checking ownership and archive state.
+
 `credit_accounts.cached_available_atoms` and `cached_reserved_atoms` are snapshots only. A production balance check must lock the account and eligible lots in a single transaction, derive spendable balance from remaining lots less reservations, write allocations and ledger rows, and update snapshots in the same transaction. The database schema alone does not implement those transactions.
 
 ## Credit source order
@@ -16,7 +18,7 @@ The application policy is promotional credits first, then subscription credits, 
 
 The configured database was checked read-only before its initial migration: it matched the Think Zone project and had no application tables. Migrations `0000` through `0005` are now applied, including Better Auth tables, payment transaction history, Stripe customer and price references, and credit grant snapshots.
 
-Google OAuth users and sessions use PostgreSQL. The local chat and overview routes remain in-memory development paths; provider usage and wallet accounting are not persisted. To generate and apply later schema changes against the configured database:
+Google OAuth users and sessions, billing records, and explicitly saved conversation transcripts use PostgreSQL. Unstored chats and the overview wallet remain in browser memory and process-local development state respectively; provider usage and wallet accounting are not persisted. Conversation persistence uses existing migration `0000`, so the feature adds no migration. To generate and apply later schema changes against the configured database:
 
 ```bash
 export DATABASE_URL='postgres://user:password@host:5432/think_zone_ai'

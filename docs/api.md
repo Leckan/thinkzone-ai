@@ -32,7 +32,22 @@ The route accepts prompts up to 4,000 characters. In mock mode it accepts only t
 
 In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route streams the provider response and returns provider-reported input/output token counts when available. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
 
+For an unsaved chat, optional `history` contains up to 24 prior user/assistant messages and is used only as request context. For a saved chat, send `conversationId` instead; the route verifies ownership and loads recent messages from PostgreSQL. These context messages are sent to the selected provider. The mock route continues to generate a single-turn simulated response.
+
 The route is not a production inference API: it has no durable usage accounting, customer billing, developer key, or distributed idempotency. Production API routes listed in the original product requirements remain unimplemented.
+
+## Saved conversations
+
+Saved-conversation routes require an active Google-authenticated user, scope every lookup and mutation to that user, and return private `no-store` responses. Chat transcripts are stored only after the user chooses Save; later user and assistant messages append to the saved record. Unstored chats remain in browser memory. Users can list, open, rename, archive, restore, and permanently delete their saved conversations.
+
+- `GET /api/conversations` lists up to 100 active conversations. Add `?includeArchived=true` to include archived records.
+- `POST /api/conversations` creates a conversation from 1–100 validated user/assistant messages, with a 100,000-character aggregate limit. The title starts from the first user message.
+- `GET /api/conversations/{conversationId}` returns metadata and up to the latest 200 messages.
+- `PATCH /api/conversations/{conversationId}` accepts a trimmed title and/or an `archived` boolean.
+- `DELETE /api/conversations/{conversationId}` permanently deletes the conversation and cascading messages.
+- `POST /api/conversations/{conversationId}/messages` appends one validated user/assistant message to an active, unarchived conversation.
+
+Conversation history is not covered by request-log retention because inference request logging is not implemented. Deleting a saved conversation removes its messages from the application database.
 
 ## `GET /api/billing/subscription`
 

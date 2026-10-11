@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, Brain, ChevronDown,
+  Activity, Archive, ArrowDownRight, ArrowUpRight, Bell, Brain, Check, ChevronDown,
   ChevronRight, CircleHelp, Code2, Coins, CreditCard, FileText, Gauge,
   LayoutDashboard, LoaderCircle, LockKeyhole, Menu, MessageSquare, MoreHorizontal,
-  Plus, Send, Settings2, ShieldCheck, Sparkles, Square, Wallet, Zap,
+  Pencil, Plus, RotateCcw, Send, Settings2, ShieldCheck, Sparkles, Square, Trash2, Wallet, X, Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { modelCatalog } from "@/lib/ai/catalog";
@@ -53,7 +53,16 @@ type ChatMessage = {
   createdAt: number;
   modelId?: string;
   providerName?: string;
+  persistable?: boolean;
   usage?: { inputTokens: number | null; outputTokens: number | null; customerChargeAtoms?: string; status: string };
+};
+type SavedConversation = {
+  id: string;
+  title: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
 };
 
 const mockWorkspaceModels: WorkspaceModel[] = modelCatalog.map((model) => ({
@@ -104,6 +113,18 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   const [modelId, setModelId] = useState(modelCatalog[0].id);
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationTitle, setConversationTitle] = useState("");
+  const [conversationArchivedAt, setConversationArchivedAt] = useState<string | null>(null);
+  const [conversationHasMoreMessages, setConversationHasMoreMessages] = useState(false);
+  const [savedConversations, setSavedConversations] = useState<SavedConversation[]>([]);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationBusy, setConversationBusy] = useState(false);
+  const [conversationError, setConversationError] = useState("");
+  const [conversationNotice, setConversationNotice] = useState("");
+  const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [markdownView, setMarkdownView] = useState<"rendered" | "source">("rendered");
   const [isSending, setIsSending] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -157,24 +178,55 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   }, [runtimeMode, refreshOverview]);
   useEffect(() => { messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
 
+  const refreshConversations = useCallback(async (showArchived = includeArchived) => {
+    setConversationsLoading(true);
+    setConversationError("");
+    try {
+      const response = await fetch(`/api/conversations${showArchived ? "?includeArchived=true" : ""}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({})) as { conversations?: SavedConversation[]; error?: string };
+      if (!response.ok) throw new Error(response.status === 401 ? "Sign in with Google to save and view conversations." : data.error ?? "Could not load saved conversations.");
+      setSavedConversations(data.conversations ?? []);
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not load saved conversations.");
+      setSavedConversations([]);
+    } finally {
+      setConversationsLoading(false);
+    }
+  }, [includeArchived]);
+
+  useEffect(() => {
+    if (screen === "Conversations") void refreshConversations();
+  }, [screen, includeArchived, refreshConversations]);
+
   const availableAtoms = BigInt(overview?.wallet.availableAtoms ?? "4800000");
   const reservedAtoms = BigInt(overview?.wallet.reservedAtoms ?? "0");
   const usedAtoms = useMemo(() => (overview?.usage ?? []).reduce((sum, row) => sum + BigInt(row.customerChargeAtoms), 0n), [overview]);
   const usageCount = overview?.usage.length ?? 0;
 
   const openScreen = (next: Screen) => {
+    if (next === "New chat" && !conversationId && messages.some((message) => message.persistable !== false && message.content.trim())) {
+      const shouldDiscard = window.confirm("Start a new chat? This transcript has not been saved and will be cleared.");
+      if (!shouldDiscard) return;
+    }
     setScreen(next);
     setMobileNavOpen(false);
     if (next === "New chat") {
       setMessages([]);
+      setConversationId(null);
+      setConversationTitle("");
+      setConversationArchivedAt(null);
+      setConversationHasMoreMessages(false);
+      setConversationError("");
+      setConversationNotice("");
       window.setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
   const sendPrompt = async (value = prompt) => {
     const clean = value.trim();
-    if (!clean || isSending) return;
+    if (!clean || isSending || conversationArchivedAt) return;
     const assistantId = crypto.randomUUID();
+    const userMessageId = crypto.randomUUID();
     const idempotencyKey = crypto.randomUUID();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -182,21 +234,39 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
     setScreen("New chat");
     setMessages((current) => [
       ...current,
-      { id: crypto.randomUUID(), role: "user", content: clean, createdAt: Date.now(), modelId },
+      { id: userMessageId, role: "user", content: clean, createdAt: Date.now(), modelId },
       { id: assistantId, role: "assistant", content: "", createdAt: Date.now(), modelId },
     ]);
     setIsSending(true);
 
     try {
+      if (conversationId) {
+        const savedUser = await fetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "user", content: clean }),
+          signal: controller.signal,
+        });
+        if (!savedUser.ok) {
+          const problem = await savedUser.json().catch(() => ({})) as { error?: string };
+          throw new Error(problem.error ?? "Could not save your message. The provider was not called.");
+        }
+      }
+
+      const history = conversationId ? undefined : messages
+        .filter((message) => message.persistable !== false && message.content.trim())
+        .slice(-24)
+        .map(({ role, content }) => ({ role, content }));
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: clean, modelId, idempotencyKey }),
+        body: JSON.stringify({ prompt: clean, modelId, idempotencyKey, ...(conversationId ? { conversationId } : { history }) }),
         signal: controller.signal,
       });
       if (!response.ok) {
         const problem = (await response.json().catch(() => ({ error: "The request could not be started." }))) as { error?: string };
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: problem.error ?? "The request could not be started." } : message));
+        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: problem.error ?? "The request could not be started.", persistable: false } : message));
+        if (conversationId) void refreshConversations();
         await refreshOverview();
         return;
       }
@@ -205,6 +275,8 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
       const decoder = new TextDecoder();
       let buffer = "";
       let completed = false;
+      let assistantText = "";
+      let responseFailed = false;
       const handleFrame = (frame: string) => {
         const line = frame.split("\n").find((part) => part.startsWith("data: "));
         if (!line) return;
@@ -217,12 +289,14 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           usage?: { inputTokens: number | null; outputTokens: number | null; customerChargeAtoms?: string; status: string };
         };
         if (data.type === "delta" && data.text) {
+          assistantText += data.text;
           setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content + data.text } : message));
         } else if (data.type === "done" && data.usage) {
           completed = true;
           setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, providerName: data.provider, usage: data.usage } : message));
         } else if (data.type === "error") {
-          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: data.error ?? "The response failed." } : message));
+          responseFailed = true;
+          setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: data.error ?? "The response failed.", persistable: false } : message));
         }
       };
       while (true) {
@@ -235,23 +309,145 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
       }
       if (buffer.trim()) handleFrame(buffer);
       if (!completed && !controller.signal.aborted) {
-        setMessages((current) => current.map((message) => message.id === assistantId && !message.content ? { ...message, content: "The response ended before usage details arrived. Check the provider account before retrying." } : message));
+        responseFailed = true;
+        setMessages((current) => current.map((message) => message.id === assistantId && !message.content ? { ...message, content: "The response ended before usage details arrived. Check the provider account before retrying.", persistable: false } : message));
       }
+      if (conversationId && assistantText && !responseFailed) {
+        const savedAssistant = await fetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: assistantText }),
+        });
+        if (!savedAssistant.ok) setConversationError("The reply arrived, but Think Zone could not save it to this conversation.");
+      }
+      if (conversationId) void refreshConversations();
       await refreshOverview();
     } catch (error) {
       const wasAborted = error instanceof DOMException && error.name === "AbortError";
+      const failureMessage = error instanceof Error ? error.message : "The response could not be completed. Refresh usage before retrying.";
       if (wasAborted) {
         const stopMessage = runtimeMode === "direct-provider-development"
           ? "Generation stopped. The provider may still bill tokens it processed before cancellation."
           : "Generation stopped. The local demo reservation was released.";
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content || stopMessage } : message));
+        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: message.content || stopMessage, persistable: false } : message));
       } else {
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: "The response could not be completed. Refresh usage before retrying." } : message));
+        setConversationError(failureMessage);
+        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: failureMessage, persistable: false } : message));
       }
+      if (conversationId) void refreshConversations();
       await refreshOverview();
     } finally {
       abortRef.current = null;
       setIsSending(false);
+    }
+  };
+
+  const saveCurrentConversation = async () => {
+    const transcript = messages.filter((message) => message.persistable !== false && message.content.trim()).map(({ role, content }) => ({ role, content }));
+    if (!transcript.length || conversationBusy) return;
+    setConversationBusy(true);
+    setConversationError("");
+    setConversationNotice("");
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: transcript }),
+      });
+      const data = await response.json().catch(() => ({})) as { conversation?: SavedConversation; error?: string };
+      if (!response.ok || !data.conversation) throw new Error(response.status === 401 ? "Sign in with Google to save conversations." : data.error ?? "Could not save this conversation.");
+      setConversationId(data.conversation.id);
+      setConversationTitle(data.conversation.title);
+      setConversationArchivedAt(null);
+      setConversationNotice("Conversation saved to your account.");
+      setScreen("New chat");
+      await refreshConversations();
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not save this conversation.");
+    } finally {
+      setConversationBusy(false);
+    }
+  };
+
+  const openSavedConversation = async (id: string) => {
+    setConversationBusy(true);
+    setConversationError("");
+    setConversationNotice("");
+    try {
+      const response = await fetch(`/api/conversations/${id}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({})) as {
+        conversation?: { id: string; title: string; archivedAt: string | null };
+        messages?: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }>;
+        hasMoreMessages?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !data.conversation) throw new Error(response.status === 401 ? "Sign in with Google to view saved conversations." : data.error ?? "Could not open this conversation.");
+      setConversationId(data.conversation.id);
+      setConversationTitle(data.conversation.title);
+      setConversationArchivedAt(data.conversation.archivedAt);
+      setConversationHasMoreMessages(data.hasMoreMessages === true);
+      setMessages((data.messages ?? []).map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: new Date(message.createdAt).getTime(),
+        modelId,
+      })));
+      setScreen("New chat");
+      setMobileNavOpen(false);
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not open this conversation.");
+    } finally {
+      setConversationBusy(false);
+    }
+  };
+
+  const updateSavedConversation = async (id: string, update: { title?: string; archived?: boolean }) => {
+    setConversationBusy(true);
+    setConversationError("");
+    try {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(update),
+      });
+      const data = await response.json().catch(() => ({})) as { conversation?: SavedConversation; error?: string };
+      if (!response.ok || !data.conversation) throw new Error(data.error ?? "Could not update this conversation.");
+      if (conversationId === id) {
+        setConversationTitle(data.conversation.title);
+        setConversationArchivedAt(data.conversation.archivedAt);
+      }
+      setRenamingConversationId(null);
+      setConversationNotice(update.archived ? "Conversation archived." : update.title ? "Conversation renamed." : "Conversation restored.");
+      await refreshConversations();
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not update this conversation.");
+    } finally {
+      setConversationBusy(false);
+    }
+  };
+
+  const deleteSavedConversation = async (id: string) => {
+    if (!window.confirm("Delete this saved conversation and its messages permanently?")) return;
+    setConversationBusy(true);
+    setConversationError("");
+    try {
+      const response = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Could not delete this conversation.");
+      if (conversationId === id) {
+        setConversationId(null);
+        setConversationTitle("");
+        setConversationArchivedAt(null);
+        setConversationHasMoreMessages(false);
+        setMessages([]);
+      }
+      setConversationNotice("Conversation deleted.");
+      await refreshConversations();
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not delete this conversation.");
+    } finally {
+      setConversationBusy(false);
     }
   };
 
@@ -331,9 +527,11 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
         </header>
 
         <main className={`content ${screen === "New chat" ? "content-narrow" : ""}`}>
-          {runtimeMode === "direct-provider-development" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Direct provider development mode.</strong> Sign in with Google before submitting a prompt. Prompts go to the selected provider using its server-side API key. The provider bills that key’s account; Think Zone does not deduct TZC or calculate a customer charge. Requests and transcripts are not stored.</span></div> : runtimeMode === "development-mock" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Development mode.</strong> Chat uses a simulated model and sample credits held in memory. No external AI provider, account, or payment service is connected; sample balances reset when the local server restarts.</span></div> : <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Loading local provider configuration.</strong> No prompt is sent until you submit a chat message.</span></div>}
+          {runtimeMode === "direct-provider-development" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Direct provider development mode.</strong> Sign in with Google before submitting a prompt. Prompts go to the selected provider using its server-side API key. The provider bills that key’s account; Think Zone does not deduct TZC or calculate a customer charge. Chats stay in this browser unless you explicitly save them; saved transcripts are stored in your account.</span></div> : runtimeMode === "development-mock" ? <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Development mode.</strong> Chat uses a simulated model and sample credits held in memory. No external AI provider, account, or payment service is connected; sample balances reset when the local server restarts.</span></div> : <div className="demo-banner"><ShieldCheck size={15} style={{ flex: "0 0 auto", marginTop: 1 }} /><span><strong>Loading local provider configuration.</strong> No prompt is sent until you submit a chat message.</span></div>}
           {overviewError && <div className="notice-panel" role="status">{overviewError}</div>}
           {modelError && <div className="notice-panel" role="status">{modelError}</div>}
+          {conversationError && <div className="conversation-alert" role="alert">{conversationError}</div>}
+          {conversationNotice && <div className="conversation-notice" role="status">{conversationNotice}</div>}
           {screen === "New chat" ? renderChat() : screen === "Overview" ? renderOverview() : screen === "Usage & credits" ? renderUsage() : screen === "Model catalog" ? renderCatalog() : screen === "Conversations" ? renderConversations() : screen === "Subscription" ? renderSubscription() : screen === "Developer API" ? renderDeveloper() : renderSettings()}
         </main>
       </div>
@@ -407,7 +605,9 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
     const selectedModel = availableModels.find((model) => model.id === modelId);
     if (!selectedModel) return <section className="panel empty-state" style={{ padding: 50 }}><Brain className="empty-icon" size={21} /><div>No chat model is available.</div><p style={{ margin: "7px 0 0" }}>{modelError || "Check the provider credentials and model catalog."}</p></section>;
     return <section className="panel chat-card">
-      <div className="chat-toolbar"><div className="model-select-wrap"><span className={`model-card-icon ${selectedModel.accent ?? "violet"}`} style={{ width: 29, height: 29 }}><Sparkles size={14} /></span><select aria-label="Choose model" value={modelId} onChange={(event) => setModelId(event.target.value)}>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.providerName}</option>)}</select><div className="model-detail"><span style={{ color: "#80b396" }}>●</span> {runtimeMode === "direct-provider-development" ? selectedModel.providerName : "Simulated · development only"}</div></div><div className="chat-toolbar-actions">{renderMarkdownToggle()}<button className="icon-button" type="button" aria-label="New conversation" title="Clear local transcript" onClick={() => setMessages([])}><Plus size={15} /></button></div></div>
+      <div className="chat-toolbar"><div className="model-select-wrap"><span className={`model-card-icon ${selectedModel.accent ?? "violet"}`} style={{ width: 29, height: 29 }}><Sparkles size={14} /></span><select aria-label="Choose model" value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={Boolean(conversationArchivedAt)}>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.providerName}</option>)}</select><div className="model-detail"><span style={{ color: "#80b396" }}>●</span> {conversationId ? conversationTitle : runtimeMode === "direct-provider-development" ? selectedModel.providerName : "Simulated · development only"}</div></div><div className="chat-toolbar-actions">{renderMarkdownToggle()}{messages.some((message) => message.persistable !== false && message.content.trim()) && !conversationId && <button className="button-secondary save-conversation-button" type="button" onClick={() => void saveCurrentConversation()} disabled={isSending || conversationBusy}><FileText size={13} /> Save</button>}<button className="icon-button" type="button" aria-label="New conversation" title="Start a new conversation" onClick={() => openScreen("New chat")}><Plus size={15} /></button></div></div>
+      {conversationArchivedAt && <div className="conversation-archive-banner"><Archive size={14} /> This conversation is archived and read-only. Restore it from the Conversations page to continue.</div>}
+      {conversationHasMoreMessages && <div className="conversation-history-note" role="status">Showing the latest 200 messages. Older messages remain saved.</div>}
       <div className="chat-messages" ref={messagesRef}>
         {messages.length === 0 ? <div className="chat-welcome"><div className="welcome-spark"><Sparkles size={23} /></div><h2>What would you like to think through?</h2><p>{runtimeMode === "direct-provider-development" ? `Choose a live model. Prompts go to ${selectedModel.providerName} and are billed to the API key owner.` : "Choose a simulated model, send a prompt, and inspect the demo usage charge. Nothing is sent to an external provider."}</p><div className="suggestion-grid">{suggestions.map((item) => <button className="suggestion" key={item.title} type="button" onClick={() => void sendPrompt(item.prompt)}><strong>{item.title}</strong>{item.prompt}</button>)}</div></div> : messages.map((message) => <div className={`message-row ${message.role}`} key={message.id}>
           {message.role === "assistant" && <span className="message-avatar"><Sparkles size={14} /></span>}
@@ -421,7 +621,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
       </div>
       <div className="chat-composer">
         <form onSubmit={handleSubmit}>
-          <div className="composer-box"><textarea ref={inputRef} aria-label="Message" placeholder="Message Think Zone…" value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={4_000} disabled={isSending} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (!isSending) void sendPrompt(); } }} />
+          <div className="composer-box"><textarea ref={inputRef} aria-label="Message" placeholder={conversationArchivedAt ? "Restore this conversation to continue…" : "Message Think Zone…"} value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={4_000} disabled={isSending || Boolean(conversationArchivedAt)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (!isSending) void sendPrompt(); } }} />
             {isSending ? <button className="send-button stop" type="button" aria-label="Stop response" title="Stop response" onClick={stopGeneration}><Square size={13} fill="currentColor" /></button> : <button className="send-button" type="submit" aria-label="Send message" disabled={!prompt.trim()}><Send size={14} /></button>}
           </div>
         </form>
@@ -487,9 +687,17 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   }
 
   function renderConversations() {
+    const transcript = messages.filter((message) => message.persistable !== false && message.content.trim());
     return <>
-      {renderHeading("Conversations", "Chat transcripts are kept in this browser session only.", <button type="button" className="button-primary" onClick={() => openScreen("New chat")}><Plus size={14} /> New chat</button>)}
-      {messages.length === 0 ? <section className="panel empty-state" style={{ padding: 50 }}><MessageSquare className="empty-icon" size={21} /><div>No saved conversations in this local demo.</div><p style={{ margin: "7px 0 16px" }}>Server-side conversation storage and account sync are not configured.</p><button className="button-secondary" type="button" onClick={() => openScreen("New chat")}>Start a chat <ChevronRight size={12} /></button></section> : <section className="panel"><div className="panel-head"><div><div className="panel-title">Current local transcript</div><div className="panel-caption">Not saved after this page reloads</div></div><div className="transcript-actions">{renderMarkdownToggle()}<button className="button-secondary" type="button" onClick={() => setMessages([])}>Clear transcript</button></div></div><div className="conversation-transcript">{messages.map((message) => <article className={`transcript-message ${message.role}`} key={message.id}><div className="transcript-message-heading"><span>{message.role === "user" ? "You" : modelName(message.modelId ?? modelId, availableModels)}</span><time dateTime={new Date(message.createdAt).toISOString()}>{shortDate(message.createdAt)}</time></div>{message.content ? <MarkdownContent content={message.content} view={markdownView} isStreaming={isSending && message.id === messages[messages.length - 1]?.id} className="transcript-markdown" /> : <div className="transcript-pending">Generating…</div>}</article>)}</div></section>}
+      {renderHeading("Conversations", "Save chats to your account when you want them available across sessions.", <button type="button" className="button-primary" onClick={() => openScreen("New chat")}><Plus size={14} /> New chat</button>)}
+      <div className="conversation-list-panel panel">
+        <div className="panel-head"><div><div className="panel-title">Saved conversations</div><div className="panel-caption">Only you can access these saved transcripts.</div></div><div className="conversation-list-controls"><label className="archived-toggle"><input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} /> Include archived</label><button className="button-secondary" type="button" onClick={() => void refreshConversations()} disabled={conversationsLoading}><Activity size={13} /> Refresh</button></div></div>
+        {conversationsLoading ? <div className="empty-state"><LoaderCircle size={17} className="spin" /><div>Loading saved conversations…</div></div> : savedConversations.length ? <div className="saved-conversation-list">{savedConversations.map((conversation) => <article className={`saved-conversation ${conversation.archivedAt ? "archived" : ""}`} key={conversation.id}>
+          <div className="saved-conversation-main">{renamingConversationId === conversation.id ? <form className="conversation-rename-form" onSubmit={(event) => { event.preventDefault(); void updateSavedConversation(conversation.id, { title: renameDraft }); }}><input autoFocus aria-label="Conversation title" maxLength={200} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} /><button className="icon-button conversation-action-icon" aria-label="Save title" type="submit" disabled={!renameDraft.trim() || conversationBusy}><Check size={14} /></button><button className="icon-button conversation-action-icon" aria-label="Cancel rename" type="button" onClick={() => setRenamingConversationId(null)}><X size={14} /></button></form> : <><div className="saved-conversation-title">{conversation.title}</div><div className="saved-conversation-meta"><span>{conversation.messageCount} messages</span><span>Updated {shortDate(new Date(conversation.updatedAt).getTime())}</span>{conversation.archivedAt && <span className="archived-label">Archived</span>}</div></>}</div>
+          <div className="saved-conversation-actions"><button className="button-secondary" type="button" onClick={() => void openSavedConversation(conversation.id)} disabled={conversationBusy}><MessageSquare size={13} /> Open</button><button className="icon-button conversation-action-icon" type="button" aria-label={`Rename ${conversation.title}`} title="Rename" onClick={() => { setRenamingConversationId(conversation.id); setRenameDraft(conversation.title); }} disabled={conversationBusy}><Pencil size={13} /></button><button className="icon-button conversation-action-icon" type="button" aria-label={conversation.archivedAt ? `Restore ${conversation.title}` : `Archive ${conversation.title}`} title={conversation.archivedAt ? "Restore" : "Archive"} onClick={() => void updateSavedConversation(conversation.id, { archived: !conversation.archivedAt })} disabled={conversationBusy}>{conversation.archivedAt ? <RotateCcw size={13} /> : <Archive size={13} />}</button><button className="icon-button conversation-action-icon danger" type="button" aria-label={`Delete ${conversation.title}`} title="Delete permanently" onClick={() => void deleteSavedConversation(conversation.id)} disabled={conversationBusy}><Trash2 size={13} /></button></div>
+        </article>)}</div> : <div className="empty-state"><MessageSquare className="empty-icon" size={20} /><div>{includeArchived ? "No saved conversations found." : "No active saved conversations."}</div><p style={{ margin: "6px 0 0" }}>Start a chat, then choose Save when you want to keep it in your account.</p></div>}
+      </div>
+      {transcript.length > 0 && <section className="panel current-transcript-panel"><div className="panel-head"><div><div className="panel-title">{conversationId ? conversationTitle || "Saved conversation" : "Current chat"}</div><div className="panel-caption">{conversationId ? "Saved to your account" : "This transcript is only in this browser until you save it."}</div></div><div className="transcript-actions">{renderMarkdownToggle()}{!conversationId && <button className="button-primary" type="button" onClick={() => void saveCurrentConversation()} disabled={isSending || conversationBusy}><FileText size={13} /> {conversationBusy ? "Saving…" : "Save conversation"}</button>}{!conversationId && <button className="button-secondary" type="button" onClick={() => setMessages([])}>Clear</button>}</div></div>{conversationHasMoreMessages && <div className="conversation-history-note" role="status">Showing the latest 200 messages. Older messages remain saved.</div>}<div className="conversation-transcript">{messages.map((message) => <article className={`transcript-message ${message.role}`} key={message.id}><div className="transcript-message-heading"><span>{message.role === "user" ? "You" : modelName(message.modelId ?? modelId, availableModels)}</span><time dateTime={new Date(message.createdAt).toISOString()}>{shortDate(message.createdAt)}</time></div>{message.content ? <MarkdownContent content={message.content} view={markdownView} isStreaming={isSending && message.id === messages[messages.length - 1]?.id} className="transcript-markdown" /> : <div className="transcript-pending">Generating…</div>}</article>)}</div></section>}
     </>;
   }
 
@@ -510,15 +718,16 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
 
   function renderSettings() {
     return <>
-      {renderHeading("Workspace settings", "Demo identity and account controls for the local preview.")}
+      {renderHeading("Workspace settings", "Account and privacy controls for this development preview.")}
       <div className="settings-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Profile</div><div className="panel-caption">No authenticated identity is configured</div></div></div>
         <div className="setting-row"><div><div className="setting-label">Workspace</div><div className="setting-detail">Current demo scope</div></div><div className="setting-value">Personal workspace</div></div>
-        <div className="setting-row"><div><div className="setting-label">Account</div><div className="setting-detail">Authentication provider not connected</div></div><div className="setting-value">Anonymous demo</div></div>
-        <div className="setting-row"><div><div className="setting-label">Sessions</div><div className="setting-detail">Login, logout, and revocation unavailable</div></div><div className="setting-value">Not configured</div></div>
+        <div className="setting-row"><div><div className="setting-label">Account</div><div className="setting-detail">{googleOAuthEnabled ? "Google sign-in is available" : "Authentication provider not connected"}</div></div><div className="setting-value">{googleOAuthEnabled ? "Google OAuth" : "Anonymous demo"}</div></div>
+        <div className="setting-row"><div><div className="setting-label">Sessions</div><div className="setting-detail">Managed by Google sign-in</div></div><div className="setting-value">{googleOAuthEnabled ? "Configured" : "Not configured"}</div></div>
       </section><section className="panel"><div className="panel-head"><div><div className="panel-title">Privacy & controls</div><div className="panel-caption">Local development environment</div></div></div>
-        <div className="setting-row"><div><div className="setting-label">Prompt storage</div><div className="setting-detail">Not written to the database</div></div><div className="setting-value">Memory only</div></div>
+        <div className="setting-row"><div><div className="setting-label">Prompt storage</div><div className="setting-detail">Stored only when you choose Save conversation</div></div><div className="setting-value">Opt in</div></div>
         <div className="setting-row"><div><div className="setting-label">Provider requests</div><div className="setting-detail">{runtimeMode === "direct-provider-development" ? "Configured provider adapters" : "Development mock adapter only"}</div></div><div className="setting-value">{runtimeMode === "direct-provider-development" ? "Provider billed" : "Disabled externally"}</div></div>
-        <div className="setting-row"><div><div className="setting-label">Payments</div><div className="setting-detail">No checkout or webhook receiver</div></div><div className="setting-value">Not configured</div></div>
+        <div className="setting-row"><div><div className="setting-label">Saved conversations</div><div className="setting-detail">Rename, archive, restore, or permanently delete from Conversations</div></div><div className="setting-value">Account storage</div></div>
+        <div className="setting-row"><div><div className="setting-label">Payments</div><div className="setting-detail">Available in the development billing panel</div></div><div className="setting-value">Test only</div></div>
       </section></div>
     </>;
   }

@@ -14,7 +14,7 @@ The mock routes are guarded by `getDemoStore()`: they return unavailable when `N
 - `lib/auth.ts` and `app/api/auth/[...all]/route.ts`: Google OAuth, encrypted OAuth-token storage, and session handling with Better Auth.
 - `db/schema.ts` and `db/migrations`: PostgreSQL tables for auth and users, organizations, plans, subscriptions, model/provider eligibility, versioned rate cards, credit accounts/lots, usage, reservations, ledger, payment event idempotency, API-key hashes, conversations, and audit records.
 
-The PostgreSQL schema stores Google auth, Stripe customers, subscriptions, payment transactions, credit lots, event receipts, and ledger grants. Stripe Checkout and webhook services use PostgreSQL transactions. The chat route still has no production repository/service layer connecting inference to the persistent wallet, and no background worker. These gaps must be completed before enabling customer access.
+PostgreSQL stores Google auth, billing records, and user-opted-in conversation transcripts. Conversation routes bind every read and write to the active user's ID. In provider-development mode, a saved conversation's recent user/assistant messages become request context; unsaved chats pass bounded browser-held history. The chat route still has no production repository/service layer connecting inference to the persistent wallet, and no background worker. These gaps must be completed before enabling customer access.
 
 ## Data and request path
 
@@ -37,6 +37,7 @@ The production design should replace the local store with one database transacti
 | Google OAuth, sessions, verified-email check | Implemented with Better Auth and PostgreSQL; billing routes bind sessions to user-owned credit accounts |
 | Stripe hosted subscriptions, top-ups, Billing Portal, signed webhook grants | Implemented as a billing foundation; requires test-mode checkout validation and Stripe Portal configuration |
 | Direct local adapters for OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, and xAI | Implemented for development; provider-account billing only |
+| Explicitly saved conversations, account-scoped history, rename/archive/restore/delete | Implemented using existing conversation tables; users opt in before transcripts are stored |
 | Persistent provider usage, actual cost calculation, and reconciliation | Not implemented; commercial review and verified rate cards pending |
 | Persistent-wallet inference, refunds, automatic tax, and payment disputes | Not implemented |
 | Durable queue, API keys, organizations, file processing | Schema/UI foundations only or not implemented |
