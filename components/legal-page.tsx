@@ -39,7 +39,7 @@ export function LegalPage({
       <footer className="legal-footer">
         <div className="legal-footer-brand">
           <span>Think Zone AI <span aria-hidden="true">·</span> A Think Zone LLC product</span>
-          <span>Founded by <a href="https://www.linkedin.com/in/leckan/" target="_blank" rel="noopener noreferrer">Ahmed Mustapha</a></span>
+          <span>By <a href="https://www.linkedin.com/in/leckan/" target="_blank" rel="noopener noreferrer">Leckan M</a></span>
         </div>
         <div className="legal-footer-actions">
           <nav aria-label="Legal pages">

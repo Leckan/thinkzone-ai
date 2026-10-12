@@ -132,7 +132,7 @@ export function MarketingLanding() {
           <span className="marketing-brand-mark"><Sparkles size={16} /></span>
           <span>think zone<span className="marketing-brand-ai"> AI</span></span>
         </Link>
-        <span className="marketing-footer-company">A Think Zone LLC product · Founded by <a href="https://www.linkedin.com/in/leckan/" target="_blank" rel="noopener noreferrer">Ahmed Mustapha</a></span>
+        <span className="marketing-footer-company">A Think Zone LLC product · By <a href="https://www.linkedin.com/in/leckan/" target="_blank" rel="noopener noreferrer">Leckan M</a></span>
         <div className="marketing-footer-nav">
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
