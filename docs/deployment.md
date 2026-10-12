@@ -25,3 +25,11 @@ For a Dashboard-managed webhook, use `{APP_URL}/api/webhooks/stripe` and enable 
 Before deployment, connect persistent wallet reservations and settlements to inference, add migration rollout and backup plans, obtain provider commercial approval, implement authoritative usage and cost reconciliation, add refund and tax handling, strengthen authorization and tenant isolation, add rate limiting and monitoring, and verify data deletion/retention. Run Stripe test-mode Checkout and webhook tests before any production payment. The current direct provider adapters are development-only. Configure server-only secrets in the deployment environment; do not store them in git or browser variables.
 
 The app has no production secrets in `.env.example`. OAuth, database, Stripe, provider, Redis, object storage, and observability variables are placeholders only. There are no backup/restore or rollback scripts yet.
+
+### AWS Amplify Hosting
+
+For the production Amplify branch, configure `APP_URL=https://ai.thinkzone.tech`, `DATABASE_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` in the Amplify environment. Set `BETTER_AUTH_URL=https://ai.thinkzone.tech` as well so Better Auth uses the production origin. Register `https://ai.thinkzone.tech/api/auth/callback/google` as an authorized redirect URI in the Google OAuth client. Keep credentials server-side; do not use `NEXT_PUBLIC_` names.
+
+The root `amplify.yml` writes the required server-side values into an ignored, permission-restricted `.env.production` before building. Amplify does not automatically expose its console environment variables to Next.js server-side rendering. The build stops with the missing variable names if production authentication is not configured, rather than deploying a sign-up page without Google or with broken account creation. Restrict access to build and deployment artifacts because they contain the server runtime bundle. If your Amplify application uses a separate secret-management setup, make those values available to the build command using that setup.
+
+After setting or changing these values, redeploy the production branch. If sign-up still fails, inspect the corresponding Amplify SSR function logs in CloudWatch for the specific Better Auth or PostgreSQL error, and verify that the production database has all migrations applied.
