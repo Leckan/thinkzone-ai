@@ -29,8 +29,12 @@ export function AuthPage({
         <h1 id="auth-title">{isSignUp ? "Create your account" : "Welcome back"}</h1>
         <p className="auth-description">
           {isSignUp
-            ? "Create an account with your email and password, or continue with Google."
-            : "Sign in with your email and password or continue with Google."}
+            ? googleOAuthEnabled
+              ? "Create an account with your email and password, or continue with Google."
+              : "Create an account with your email and password."
+            : googleOAuthEnabled
+              ? "Sign in with your email and password or continue with Google."
+              : "Sign in with your email and password."}
         </p>
         <EmailPasswordForm intent={intent} />
         {googleOAuthEnabled && (
