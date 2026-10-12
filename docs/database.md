@@ -18,7 +18,7 @@ The application policy is promotional credits first, then subscription credits, 
 
 The configured database was checked read-only before its initial migration: it matched the Think Zone project and had no application tables. Migrations `0000` through `0006` are now applied, including Better Auth tables, payment transaction history, Stripe customer and price references, credit grant snapshots, and account rate-limit buckets.
 
-Google OAuth users and sessions, billing records, and explicitly saved conversation transcripts use PostgreSQL. Unstored chats and the overview wallet remain in browser memory and process-local development state respectively; provider usage and wallet accounting are not persisted. Conversation persistence uses existing migration `0000`, so the feature adds no migration. To generate and apply later schema changes against the configured database:
+Email/password and Google OAuth users and sessions, billing records, and explicitly saved conversation transcripts use PostgreSQL. Unstored chats and the overview wallet remain in browser memory and process-local development state respectively; provider usage and wallet accounting are not persisted. Conversation persistence uses existing migration `0000`, so the feature adds no migration. To generate and apply later schema changes against the configured database:
 
 ```bash
 export DATABASE_URL='postgres://user:password@host:5432/think_zone_ai'

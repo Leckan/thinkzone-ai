@@ -35,8 +35,26 @@ export const auth = betterAuth({
     },
   }),
   socialProviders: googleProvider,
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true,
+    requireEmailVerification: false,
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  },
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 5 },
+    },
+  },
   account: {
     encryptOAuthTokens: true,
+    accountLinking: {
+      disableImplicitLinking: true,
+      requireLocalEmailVerified: true,
+    },
   },
   advanced: {
     database: {

@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Set `AI_PROVIDER_MODE=mock` for the local simulation or `AI_PROVIDER_MODE=provider-dev` to send local chat requests to configured provider APIs. Both modes check that `NODE_ENV` is not `production`. For Google OAuth, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, and `DATABASE_URL`. Register the current app origin plus `/api/auth/callback/google` as an authorized redirect URI in Google Cloud Console. `BETTER_AUTH_URL` can pin the auth origin; otherwise local development accepts localhost ports and uses the request origin. Provider development mode requires a Google session but is not a production gateway: it lacks database-backed reservations, durable usage and cost records, and commercial eligibility review.
+Set `AI_PROVIDER_MODE=mock` for the local simulation or `AI_PROVIDER_MODE=provider-dev` to send local chat requests to configured provider APIs. Both modes check that `NODE_ENV` is not `production`. Email/password sign-up uses the existing PostgreSQL database, `AUTH_SECRET`, and Better Auth. To enable Google OAuth as well, configure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and register the current app origin plus `/api/auth/callback/google` as an authorized redirect URI in Google Cloud Console. `BETTER_AUTH_URL` can pin the auth origin; otherwise local development accepts localhost ports and uses the request origin. Provider development mode requires an active user session but is not a production gateway: it lacks database-backed reservations, durable usage and cost records, and commercial eligibility review.
 
 ### Stripe test mode
 

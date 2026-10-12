@@ -523,12 +523,21 @@ h1 { margin: 7px 0 5px; color: #202333; font-size: clamp(25px, 2.3vw, 32px); lin
 .auth-card .marketing-kicker { justify-content: center; font-size: 8px; }
 .auth-card h1 { margin: 11px 0 8px; color: #292a3c; font-size: 28px; letter-spacing: -.055em; }
 .auth-description { margin: 0 auto; max-width: 305px; color: #858798; font-size: 11px; line-height: 1.7; }
-.google-sign-in-action { margin-top: 23px; }
+.auth-email-form { display: grid; gap: 13px; margin-top: 22px; text-align: left; }
+.auth-field { display: grid; gap: 6px; color: #565867; font-size: 10px; font-weight: 600; }
+.auth-field input { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid #dedde5; border-radius: 7px; outline: none; color: #292a3c; background: #fff; font: inherit; font-weight: 450; }
+.auth-field input:focus { border-color: #8a7be0; box-shadow: 0 0 0 3px #8a7be01c; }
+.auth-field input:disabled { color: #858798; background: #f8f8fa; }
+.auth-submit-button { width: 100%; min-height: 45px; margin-top: 3px; border: 1px solid #6853d1; border-radius: 8px; color: #fff; background: #705bd8; box-shadow: 0 4px 10px #6853d126; font-size: 11px; font-weight: 650; transition: background .15s ease, box-shadow .15s ease; }
+.auth-submit-button:hover:not(:disabled) { background: #614bc9; box-shadow: 0 5px 13px #6853d133; }
+.auth-submit-button:disabled { opacity: .7; cursor: wait; }
+.google-sign-in-action { margin-top: 0; }
 .google-sign-in-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 47px; padding: 0 14px; border: 1px solid #dedde5; border-radius: 8px; color: #3f414f; background: white; box-shadow: 0 2px 5px #1f1d2a08; font-size: 11px; font-weight: 650; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease; }
 .google-sign-in-button:hover:not(:disabled) { border-color: #c9c4de; background: #fcfbff; box-shadow: 0 4px 10px #1f1d2a0d; }
 .google-sign-in-button:disabled { color: #a0a1ad; background: #f8f8fa; cursor: not-allowed; }
 .auth-form-error { margin: 11px 0 0; color: #a43f4a; font-size: 10px; line-height: 1.6; }
-.auth-divider { display: flex; align-items: center; gap: 12px; margin: 23px 0 17px; color: #a2a4af; font-size: 8px; }
+.auth-form-error a { color: #6753d0; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 19px 0 15px; color: #a2a4af; font-size: 8px; }
 .auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: #eeedf2; content: ""; }
 .auth-switch { margin: 0; color: #77798b; font-size: 10px; }
 .auth-switch a { color: #6753d0; font-weight: 650; text-decoration: none; }
