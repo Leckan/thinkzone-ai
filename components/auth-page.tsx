@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Sparkles } from "lucide-react";
+import { EmailPasswordForm } from "@/components/email-password-form";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 export function AuthPage({
@@ -28,11 +29,16 @@ export function AuthPage({
         <h1 id="auth-title">{isSignUp ? "Create your account" : "Welcome back"}</h1>
         <p className="auth-description">
           {isSignUp
-            ? "Create your Think Zone account with Google. Your account is created the first time you continue."
-            : "Sign in with the Google account connected to your Think Zone workspace."}
+            ? "Create an account with your email and password, or continue with Google."
+            : "Sign in with your email and password or continue with Google."}
         </p>
-        <GoogleSignInButton enabled={googleOAuthEnabled} />
-        <div className="auth-divider"><span>Google account required</span></div>
+        <EmailPasswordForm intent={intent} />
+        {googleOAuthEnabled && (
+          <>
+            <div className="auth-divider"><span>or continue with Google</span></div>
+            <GoogleSignInButton enabled />
+          </>
+        )}
         <p className="auth-switch">
           {isSignUp ? "Already have an account?" : "New to Think Zone?"}{" "}
           <Link href={isSignUp ? "/sign-in" : "/sign-up"}>{isSignUp ? "Sign in" : "Create an account"}</Link>

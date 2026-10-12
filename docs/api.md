@@ -1,6 +1,6 @@
 # API status
 
-The model, chat, and overview routes remain local development endpoints and require an active Google-authenticated user. Stripe billing routes require an active user, PostgreSQL, and `STRIPE_SECRET_KEY`. Checkout prices are loaded from active database plans and packages. Stripe webhook events are the only mechanism that grants persistent billing credits.
+The model, chat, and overview routes remain local development endpoints and require an active authenticated user. Stripe billing routes require an active user, PostgreSQL, and `STRIPE_SECRET_KEY`. Checkout prices are loaded from active database plans and packages. Stripe webhook events are the only mechanism that grants persistent billing credits.
 
 ## `GET, POST /api/auth/[...all]`
 
@@ -32,7 +32,7 @@ Request JSON:
 
 The route accepts prompts up to 4,000 characters. In mock mode it accepts only the two development mock IDs and reserves a conservative maximum charge before creating an SSE response. `data:` events contain `delta`, then a final `done` event with simulated token counts, sample provider cost, and demo credit charge. These values are not provider-reported usage. `402` indicates insufficient sample credits, `409` indicates an already-used idempotency key or reservation conflict, and `503` indicates the mock gateway is disabled.
 
-In direct provider development mode, the caller must have a valid Google OAuth session and `modelId` must be an exact model in the server-fetched catalog. The route allows 10 provider-chat requests per account per minute; `429` includes `Retry-After`. If the shared rate-limit store cannot be reached, it returns `503` without calling the provider. The route streams up to 4,096 output tokens and returns provider-reported input/output token counts and the finish reason when available; if the provider reports its output limit, the chat marks the reply as truncated. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
+In direct provider development mode, the caller must have a valid authenticated session and `modelId` must be an exact model in the server-fetched catalog. The route allows 10 provider-chat requests per account per minute; `429` includes `Retry-After`. If the shared rate-limit store cannot be reached, it returns `503` without calling the provider. The route streams up to 4,096 output tokens and returns provider-reported input/output token counts and the finish reason when available; if the provider reports its output limit, the chat marks the reply as truncated. It disables automatic SDK retries and aborts the upstream request when the client cancels. The route does not reserve or deduct demo credits, estimate provider cost, persist a request, or charge through Think Zone. A request may still incur provider charges if canceled after processing begins.
 
 For an unsaved chat, optional `history` contains up to 24 prior user/assistant messages and is used only as request context. For a saved chat, send `conversationId` instead; the route verifies ownership and loads recent messages from PostgreSQL. These context messages are sent to the selected provider. The mock route continues to generate a single-turn simulated response.
 
@@ -40,7 +40,7 @@ The route is not a production inference API: it has no durable usage accounting,
 
 ## Saved conversations
 
-Saved-conversation routes require an active Google-authenticated user, scope every lookup and mutation to that user, and return private `no-store` responses. Chat transcripts are stored only after the user chooses Save; later user and assistant messages append to the saved record. Unstored chats remain in browser memory. Users can list, open, rename, archive, restore, and permanently delete their saved conversations.
+Saved-conversation routes require an active authenticated user, scope every lookup and mutation to that user, and return private `no-store` responses. Chat transcripts are stored only after the user chooses Save; later user and assistant messages append to the saved record. Unstored chats remain in browser memory. Users can list, open, rename, archive, restore, and permanently delete their saved conversations.
 
 - `GET /api/conversations` lists up to 100 active conversations. Add `?includeArchived=true` to include archived records.
 - `POST /api/conversations` creates a conversation from 1–100 validated user/assistant messages, with a 100,000-character aggregate limit. The title starts from the first user message.
