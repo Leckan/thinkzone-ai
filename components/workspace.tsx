@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { modelCatalog } from "@/lib/ai/catalog";
 import { formatTzc } from "@/lib/credits/accounting";
 import { GoogleAuthControl } from "@/components/google-auth-control";
+import { GoogleAccountLink } from "@/components/google-account-link";
 import { BillingPanel } from "@/components/billing-panel";
 import { MarkdownContent } from "@/components/markdown-content";
 
@@ -814,10 +815,9 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   function renderSettings() {
     return <>
       {renderHeading("Workspace settings", "Account and privacy controls for this development preview.")}
-      <div className="settings-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Profile</div><div className="panel-caption">Your account identity is managed by Google</div></div></div>
+      <div className="settings-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Profile</div><div className="panel-caption">Manage your account and sign-in methods</div></div></div>
         <div className="setting-row"><div><div className="setting-label">Workspace</div><div className="setting-detail">Current demo scope</div></div><div className="setting-value">Personal workspace</div></div>
-        <div className="setting-row"><div><div className="setting-label">Account</div><div className="setting-detail">Your Google account is connected</div></div><div className="setting-value">Google</div></div>
-        <div className="setting-row"><div><div className="setting-label">Sessions</div><div className="setting-detail">Managed by Google sign-in</div></div><div className="setting-value">Active</div></div>
+        <div className="setting-row"><div><div className="setting-label">Google sign-in</div><div className="setting-detail">Connect Google to this signed-in account</div></div><GoogleAccountLink enabled={googleOAuthEnabled} /></div>
       </section><section className="panel"><div className="panel-head"><div><div className="panel-title">Privacy & controls</div><div className="panel-caption">Local development environment</div></div></div>
         <div className="setting-row"><div><div className="setting-label">Prompt storage</div><div className="setting-detail">Stored only when you choose Save conversation</div></div><div className="setting-value">Opt in</div></div>
         <div className="setting-row"><div><div className="setting-label">Provider requests</div><div className="setting-detail">{runtimeMode === "direct-provider-development" ? "Configured provider adapters" : "Development mock adapter only"}</div></div><div className="setting-value">{runtimeMode === "direct-provider-development" ? "Provider billed" : "Disabled externally"}</div></div>
