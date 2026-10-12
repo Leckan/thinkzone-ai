@@ -340,6 +340,23 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("messages_conversation_created_idx").on(table.conversationId, table.createdAt), check("messages_role_check", sql`${table.role} in ('user', 'assistant', 'system')`)]);
 
+export const feedbackSubmissions = pgTable("feedback_submissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  category: varchar("category", { length: 32 }).notNull(),
+  subject: varchar("subject", { length: 160 }).notNull(),
+  details: text("details").notNull(),
+  status: varchar("status", { length: 24 }).notNull().default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("feedback_submissions_user_created_idx").on(table.userId, table.createdAt),
+  index("feedback_submissions_status_created_idx").on(table.status, table.createdAt),
+  check("feedback_submissions_category_check", sql`${table.category} in ('feature_request', 'feedback', 'bug', 'issue')`),
+  check("feedback_submissions_status_check", sql`${table.status} in ('new', 'in_review', 'planned', 'resolved', 'closed')`),
+  check("feedback_submissions_subject_length_check", sql`char_length(${table.subject}) between 3 and 160`),
+  check("feedback_submissions_details_length_check", sql`char_length(${table.details}) between 10 and 5000`),
+]);
+
 export const developerApiKeys = pgTable("developer_api_keys", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),

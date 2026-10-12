@@ -24,6 +24,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Account and sign-in information:</strong> name, email address, password hash, account status, and sign-in provider identifiers. If you sign in with Google, the Service stores OAuth account data and encrypted provider tokens. Session records can include an IP address, browser user-agent, and session timestamps.</li>
           <li><strong>Prompts and responses:</strong> messages and model identifiers used to provide chat. Unsaved chats remain in browser state. Choosing Save stores the conversation and messages in the Service database. In mock mode, a short prompt preview is retained in server memory for the development usage view until that process restarts.</li>
+          <li><strong>Feedback submissions:</strong> the category, summary, and details you submit, associated with your account and the submission time.</li>
           <li><strong>Billing records:</strong> when billing is enabled, the Service stores Stripe customer identifiers, subscription and transaction identifiers, amounts, statuses, and receipt links. Stripe processes payment details; this application does not store full payment card numbers.</li>
           <li><strong>Operational information:</strong> request and error information needed to operate, secure, and troubleshoot the preview. The application does not currently include analytics or advertising scripts.</li>
         </ul>
@@ -44,6 +45,7 @@ export default function PrivacyPage() {
       <section>
         <h2>5. Storage and retention</h2>
         <p>Account, authentication, saved-conversation, and billing records are stored in PostgreSQL. Saved transcripts remain in the account until deleted by the user or operator; there is no automatic transcript-retention schedule in this preview. Deleting a saved conversation removes its records from the primary application database. The app does not currently offer self-service account deletion.</p>
+        <p>Feedback submissions are stored in PostgreSQL with a reference to the submitting account. There is no self-service feedback deletion; email <a href="mailto:support@thinkzonellc.com">support@thinkzonellc.com</a> to request deletion.</p>
         <p>Unstored chats are kept in the current browser page state. The mock usage view may keep a short prompt preview in server memory until the server process restarts. Provider-development chat is not persisted as an application transcript unless you save the conversation.</p>
       </section>
 

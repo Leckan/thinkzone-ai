@@ -53,6 +53,10 @@ Conversation creation is limited to 5 requests per account per minute, message a
 
 Conversation history is not covered by request-log retention because inference request logging is not implemented. Deleting a saved conversation removes its messages from the application database.
 
+## Feedback submissions
+
+`POST /api/feedback` requires an active authenticated account. It accepts a category (`feature_request`, `feedback`, `bug`, or `issue`), a 3–160 character summary, and 10–5,000 characters of details. Submissions are associated with the account and stored in PostgreSQL for review. Each account may submit three reports per hour; exceeded requests return `429`, and unavailable rate-limit storage fails closed with `503`. There is no in-app submission history or email notification in this version.
+
 ## `GET /api/billing/subscription`
 
 Requires an authenticated active user and returns the user's persistent wallet balance, active subscription plans, active top-up packages, current subscription, and recent transactions. The response is private and marked `no-store`.

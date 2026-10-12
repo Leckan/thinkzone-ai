@@ -13,7 +13,7 @@ import { GoogleAuthControl } from "@/components/google-auth-control";
 import { BillingPanel } from "@/components/billing-panel";
 import { MarkdownContent } from "@/components/markdown-content";
 
-type Screen = "Overview" | "New chat" | "Conversations" | "Model catalog" | "Usage & credits" | "Subscription" | "Developer API" | "Settings";
+type Screen = "Overview" | "New chat" | "Conversations" | "Model catalog" | "Usage & credits" | "Subscription" | "Developer API" | "Feedback" | "Settings";
 type RuntimeMode = "loading" | "development-mock" | "direct-provider-development" | "unavailable";
 type WorkspaceModel = {
   id: string;
@@ -127,6 +127,12 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
   const [conversationNotice, setConversationNotice] = useState("");
   const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [feedbackCategory, setFeedbackCategory] = useState<"feature_request" | "feedback" | "bug" | "issue">("feedback");
+  const [feedbackSubject, setFeedbackSubject] = useState("");
+  const [feedbackDetails, setFeedbackDetails] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackNotice, setFeedbackNotice] = useState("");
   const [markdownView, setMarkdownView] = useState<"rendered" | "source">("rendered");
   const [isSending, setIsSending] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -477,6 +483,31 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
     }
   };
 
+  const submitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (feedbackBusy) return;
+    setFeedbackBusy(true);
+    setFeedbackError("");
+    setFeedbackNotice("");
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: feedbackCategory, subject: feedbackSubject, details: feedbackDetails }),
+      });
+      const data = await response.json().catch(() => ({})) as { submission?: { id: string }; error?: string };
+      if (!response.ok || !data.submission) throw new Error(data.error ?? "Could not submit your feedback.");
+      setFeedbackSubject("");
+      setFeedbackDetails("");
+      setFeedbackCategory("feedback");
+      setFeedbackNotice("Thanks. Your submission has been saved for review.");
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Could not submit your feedback.");
+    } finally {
+      setFeedbackBusy(false);
+    }
+  };
+
   const stopGeneration = () => abortRef.current?.abort();
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); void sendPrompt(); };
   const renderMarkdownToggle = () => (
@@ -521,6 +552,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
         ))}
         <div className="nav-divider" />
         <nav className="nav-list" aria-label="Account">
+          <button type="button" className={`nav-item ${screen === "Feedback" ? "active" : ""}`} aria-current={screen === "Feedback" ? "page" : undefined} onClick={() => openScreen("Feedback")}><span className="nav-icon"><MessageSquare size={15} /></span><span>Feedback</span></button>
           <button type="button" className={`nav-item ${screen === "Settings" ? "active" : ""}`} onClick={() => openScreen("Settings")}><span className="nav-icon"><Settings2 size={15} /></span><span>Settings</span></button>
           <button type="button" className="nav-item" onClick={() => openScreen("Developer API")}><span className="nav-icon"><CircleHelp size={15} /></span><span>Help & documentation</span></button>
         </nav>
@@ -558,7 +590,7 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
           {modelError && <div className="notice-panel" role="status">{modelError}</div>}
           {conversationError && <div className="conversation-alert" role="alert">{conversationError}</div>}
           {conversationNotice && <div className="conversation-notice" role="status">{conversationNotice}</div>}
-          {screen === "New chat" ? renderChat() : screen === "Overview" ? renderOverview() : screen === "Usage & credits" ? renderUsage() : screen === "Model catalog" ? renderCatalog() : screen === "Conversations" ? renderConversations() : screen === "Subscription" ? renderSubscription() : screen === "Developer API" ? renderDeveloper() : renderSettings()}
+          {screen === "New chat" ? renderChat() : screen === "Overview" ? renderOverview() : screen === "Usage & credits" ? renderUsage() : screen === "Model catalog" ? renderCatalog() : screen === "Conversations" ? renderConversations() : screen === "Subscription" ? renderSubscription() : screen === "Developer API" ? renderDeveloper() : screen === "Feedback" ? renderFeedback() : renderSettings()}
         </main>
       </div>
     </div>
@@ -741,6 +773,41 @@ export function Workspace({ googleOAuthEnabled }: { googleOAuthEnabled: boolean 
       {renderHeading("Developer API", "Build on Think Zone when key management and metering are ready.")}
       <section className="panel" style={{ padding: 21, marginTop: 16 }}><div className="metric-icon" style={{ color: "#4475bd", background: "#edf5ff" }}><Code2 size={16} /></div><h2 style={{ fontSize: 16, margin: "14px 0 6px", letterSpacing: "-.03em" }}>Developer access is not enabled</h2><p className="page-subtitle" style={{ maxWidth: 620, lineHeight: 1.7 }}>There is no API-key creation, hashing, revocation, or production inference endpoint yet. The database schema includes a hashed-key foundation; the local demo chat route accepts only the browser demo flow and is not a developer API.</p></section>
       <div className="notice-panel"><strong>Security note.</strong> Never place provider credentials in browser code. Production API keys must be shown once, stored as a one-way hash, revocable, and bound to a server-authorized credit account.</div>
+    </>;
+  }
+
+  function renderFeedback() {
+    return <>
+      {renderHeading("Share feedback", "Send a feature request, feedback, bug report, or issue to Think Zone AI.")}
+      <section className="panel feedback-panel">
+        <div className="panel-head"><div><div className="panel-title">What would you like us to know?</div><div className="panel-caption">Your submission is associated with your account.</div></div></div>
+        <form className="feedback-form" onSubmit={submitFeedback}>
+          <div className="feedback-fields">
+            <div className="feedback-field">
+              <label htmlFor="feedback-category">Category</label>
+              <select id="feedback-category" value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value as typeof feedbackCategory)}>
+                <option value="feature_request">Feature request</option>
+                <option value="feedback">General feedback</option>
+                <option value="bug">Bug report</option>
+                <option value="issue">Issue or problem</option>
+              </select>
+            </div>
+            <div className="feedback-field">
+              <label htmlFor="feedback-subject">Summary</label>
+              <input id="feedback-subject" type="text" required minLength={3} maxLength={160} value={feedbackSubject} onChange={(event) => setFeedbackSubject(event.target.value)} placeholder="A short description" />
+            </div>
+            <div className="feedback-field feedback-details-field">
+              <label htmlFor="feedback-details">Details</label>
+              <textarea id="feedback-details" required minLength={10} maxLength={5_000} rows={8} value={feedbackDetails} onChange={(event) => setFeedbackDetails(event.target.value)} placeholder="Describe your idea, feedback, or the steps that led to a problem." />
+              <div className="feedback-character-count">{feedbackDetails.length.toLocaleString()} / 5,000</div>
+            </div>
+          </div>
+          <p className="feedback-privacy-note">Please don’t include passwords, API keys, or other sensitive information.</p>
+          {feedbackError && <div className="feedback-form-error" role="alert">{feedbackError}</div>}
+          {feedbackNotice && <div className="feedback-form-notice" role="status">{feedbackNotice}</div>}
+          <div className="feedback-form-actions"><button className="button-primary" type="submit" disabled={feedbackBusy}>{feedbackBusy ? <><LoaderCircle size={13} className="spin" /> Submitting…</> : <><Send size={13} /> Submit feedback</>}</button></div>
+        </form>
+      </section>
     </>;
   }
 
