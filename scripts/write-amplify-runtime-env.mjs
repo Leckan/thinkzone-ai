@@ -6,11 +6,13 @@ const required = [
   "AUTH_SECRET",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
 ];
 const missing = required.filter((name) => !process.env[name]?.trim());
 
 if (missing.length > 0) {
-  console.error(`Missing required Amplify production auth variables: ${missing.join(", ")}`);
+  console.error(`Missing required Amplify production variables: ${missing.join(", ")}`);
   process.exit(1);
 }
 
