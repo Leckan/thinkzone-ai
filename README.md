@@ -1,6 +1,6 @@
 # Think Zone AI
 
-Think Zone AI is an early product slice for a multi-model AI workspace. It includes an interactive dashboard, a streaming development mock chat, integer credit pricing, a reservation and settlement ledger, Google OAuth, PostgreSQL/Drizzle persistence, and a Stripe Checkout/webhook billing foundation.
+Think Zone AI is a product of Think Zone LLC, a Washington State registered company. It is an early product slice for a multi-model AI workspace with an interactive dashboard, a streaming development mock chat, integer credit pricing, a reservation and settlement ledger, email/password and Google sign-in, PostgreSQL/Drizzle persistence, and a Stripe Checkout/webhook billing foundation.
 
 **This is not ready for customers or public deployment.** Stripe can create subscription and top-up Checkout sessions, synchronize subscription status, and grant persistent credits through signed, idempotent webhook events. However, the local chat wallet remains in-memory and the direct provider path is development-only; inference does not spend the persistent billing balance. Do not enable live payments until persistent usage accounting, provider approvals, refund handling, and production authorization are complete.
 

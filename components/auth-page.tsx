@@ -45,7 +45,13 @@ export function AuthPage({
         </p>
         <p className="auth-privacy">Only you can access conversations saved to your account.</p>
       </section>
-      <footer className="auth-footer">Think Zone AI <span>·</span> A focused home for AI work</footer>
+      <footer className="auth-footer">
+        <span>Think Zone AI <span>·</span> A Think Zone LLC product</span>
+        <nav className="auth-footer-links" aria-label="Legal pages">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+        </nav>
+      </footer>
     </main>
   );
 }
