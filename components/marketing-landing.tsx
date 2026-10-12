@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  ArrowRight, ArrowUpRight, Brain, Check, FileText, MessageSquareText, Sparkles, WandSparkles,
+  ArrowRight, ArrowUpRight, Brain, Check, Facebook, FileText, Instagram, Linkedin, MessageSquareText, Sparkles, WandSparkles,
 } from "lucide-react";
 
 const features = [
@@ -122,8 +122,8 @@ export function MarketingLanding() {
           <h2>Sign in. Pick a model.<br /><span>Get into the work.</span></h2>
         </div>
         <div className="marketing-how-copy">
-          <p>Use your Google account to create a workspace or return to the one you already have. You can start a chat right away and choose which conversations to save.</p>
-          <Link className="marketing-text-link" href="/sign-up">Get started with Google <ArrowRight size={15} /></Link>
+          <p>Use email and password or your Google account to create a workspace or return to the one you already have. You can start a chat right away and choose which conversations to save.</p>
+          <Link className="marketing-text-link" href="/sign-up">Create your account <ArrowRight size={15} /></Link>
         </div>
       </section>
 
@@ -132,8 +132,19 @@ export function MarketingLanding() {
           <span className="marketing-brand-mark"><Sparkles size={16} /></span>
           <span>think zone<span className="marketing-brand-ai"> AI</span></span>
         </Link>
-        <span>One clear space for your AI work.</span>
-        <div><Link href="/sign-in">Sign in</Link><Link href="/sign-up">Create account</Link></div>
+        <span className="marketing-footer-company">A Think Zone LLC product · By <a href="https://www.linkedin.com/in/leckan/" target="_blank" rel="noopener noreferrer">Leckan M</a></span>
+        <div className="marketing-footer-nav">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <a href="mailto:support@thinkzonellc.com">Contact</a>
+          <Link href="/sign-in">Sign in</Link>
+          <Link href="/sign-up">Create account</Link>
+        </div>
+        <nav className="marketing-social-links" aria-label="Think Zone LLC social media">
+          <a href="https://www.linkedin.com/company/think-zone-llc/" target="_blank" rel="noopener noreferrer" aria-label="Think Zone LLC on LinkedIn" title="LinkedIn"><Linkedin size={16} aria-hidden="true" /></a>
+          <a href="https://www.facebook.com/thinkzone.tech" target="_blank" rel="noopener noreferrer" aria-label="Think Zone LLC on Facebook" title="Facebook"><Facebook size={16} aria-hidden="true" /></a>
+          <a href="https://www.instagram.com/thinkzone.tech/" target="_blank" rel="noopener noreferrer" aria-label="Think Zone LLC on Instagram" title="Instagram"><Instagram size={16} aria-hidden="true" /></a>
+        </nav>
       </footer>
     </main>
   );

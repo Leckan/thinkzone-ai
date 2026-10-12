@@ -2,11 +2,13 @@
 
 ## PostgreSQL and Drizzle
 
-`db/schema.ts` defines the PostgreSQL schema and `drizzle.config.ts` points Drizzle Kit at `db/migrations`. Important tables include users and Better Auth sessions/accounts/verification records, account-scoped `api_rate_limits`, organizations and memberships, plans and credit packages, subscriptions, credit accounts and lots, providers, model catalog, rate cards, usage requests, reservations and lot allocations, immutable credit ledger entries, payment events and transaction history, conversations, messages, developer API-key hashes, and audit logs. Plan rows retain the Stripe Product and Price IDs created for recurring checkout; user credit accounts retain their Stripe customer ID.
+`db/schema.ts` defines the PostgreSQL schema and `drizzle.config.ts` points Drizzle Kit at `db/migrations`. Important tables include users and Better Auth sessions/accounts/verification records, account-scoped `api_rate_limits`, organizations and memberships, plans and credit packages, subscriptions, credit accounts and lots, providers, model catalog, rate cards, usage requests, reservations and lot allocations, immutable credit ledger entries, payment events and transaction history, conversations, messages, feedback submissions, developer API-key hashes, and audit logs. Plan rows retain the Stripe Product and Price IDs created for recurring checkout; user credit accounts retain their Stripe customer ID.
 
 The ledger references request, lot, or payment records where applicable. A unique account/idempotency key prevents duplicate usage requests; unique provider event IDs prevent duplicate payment-event processing; unique lot grant references prevent repeated lot creation. Payment transactions snapshot the expected top-up credits and amount so later catalog edits do not change an in-flight checkout. Rate cards carry a model/version and effective time. Model availability and provider commercial approval are separate fields; the schema prevents enabling a provider without an approved status.
 
 Saved conversations use the existing `conversations` and `messages` tables. A transcript is written only after the user explicitly saves it. Conversation API queries scope rows to the active user's ID; messages cascade when the conversation is deleted. Provider-development requests load a bounded recent message context after checking ownership and archive state. `api_rate_limits` stores one fixed-window counter per user and action scope; atomic upserts keep the limit consistent across app processes without storing IP addresses or prompt content.
+
+`feedback_submissions` stores account-linked feature requests, general feedback, bug reports, and issues for review. Deleting the associated account cascades to its submissions.
 
 `credit_accounts.cached_available_atoms` and `cached_reserved_atoms` are snapshots only. A production balance check must lock the account and eligible lots in a single transaction, derive spendable balance from remaining lots less reservations, write allocations and ledger rows, and update snapshots in the same transaction. The database schema alone does not implement those transactions.
 
@@ -17,6 +19,8 @@ The application policy is promotional credits first, then subscription credits, 
 ## Migrations
 
 The configured database was checked read-only before its initial migration: it matched the Think Zone project and had no application tables. Migrations `0000` through `0006` are now applied, including Better Auth tables, payment transaction history, Stripe customer and price references, credit grant snapshots, and account rate-limit buckets.
+
+Migration `0007_illegal_weapon_omega` adds the feedback-submission table and is pending until applied to the configured database.
 
 Email/password and Google OAuth users and sessions, billing records, and explicitly saved conversation transcripts use PostgreSQL. Unstored chats and the overview wallet remain in browser memory and process-local development state respectively; provider usage and wallet accounting are not persisted. Conversation persistence uses existing migration `0000`, so the feature adds no migration. To generate and apply later schema changes against the configured database:
 
