@@ -561,6 +561,12 @@ h1 { margin: 7px 0 5px; color: #202333; font-size: clamp(25px, 2.3vw, 32px); lin
 .google-sign-in-button:disabled { color: #a0a1ad; background: #f8f8fa; cursor: not-allowed; }
 .auth-form-error { margin: 11px 0 0; color: #a43f4a; font-size: 10px; line-height: 1.6; }
 .auth-form-error a { color: #6753d0; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.auth-error-actions { display: grid; gap: 13px; margin-top: 22px; }
+.auth-link-button { display: flex; align-items: center; justify-content: center; color: #fff; text-decoration: none; }
+.auth-error-secondary { color: #6753d0; font-size: 10px; font-weight: 650; text-decoration: none; }
+.auth-error-secondary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.google-account-link { display: grid; justify-items: end; gap: 5px; }
+.google-account-link-note { max-width: 220px; margin: 0; color: #858798; font-size: 9px; line-height: 1.5; text-align: right; }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 19px 0 15px; color: #a2a4af; font-size: 8px; }
 .auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: #eeedf2; content: ""; }
 .auth-switch { margin: 0; color: #77798b; font-size: 10px; }
